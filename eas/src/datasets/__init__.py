@@ -128,7 +128,7 @@ class LogicCorpusGenerator:
         """Generate a single logic sample with structured format."""
         if logical_type is None:
             logical_type = random.choice(list(LogicalType))
-        
+
         if logical_type == LogicalType.SYLLOGISM_CLASSIC:
             problem, is_valid = self.generate_classic_syllogism()
         elif logical_type == LogicalType.PROPOSITIONAL_LOGIC:
@@ -142,19 +142,19 @@ class LogicCorpusGenerator:
         else:
             # Default to classic syllogism
             problem, is_valid = self.generate_classic_syllogism()
-        
+
         # Parse the problem into premises and conclusion
         parts = problem.split(" -> ")
         if len(parts) == 2:
             premises_text = parts[0].strip()
             conclusion = parts[1].strip()
-            
+
             # Split premises
             premises = [p.strip() for p in premises_text.split(".") if p.strip()]
         else:
             premises = []
             conclusion = problem
-        
+
         return {
             "premise1": premises[0] if len(premises) > 0 else "",
             "premise2": premises[1] if len(premises) > 1 else "",
@@ -164,24 +164,54 @@ class LogicCorpusGenerator:
             "problem_text": problem
         }
 
+    def generate_challenging_sample(self) -> Dict:
+        """Generate a more challenging sample that might be harder for the model to solve."""
+        # Introduce more subtle logical errors or complex reasoning
+        # This will create problems where EAS might provide more benefit
+
+        # Option 1: Valid syllogism
+        if random.random() < 0.5:
+            return self.generate_sample()
+        else:
+            # Option 2: Invalid syllogism (more challenging as model needs to identify invalidity)
+            subject1, subject2, subject3 = random.sample(self.subjects[:10], 3)  # Use first 10 subjects
+            predicate1, predicate2 = random.sample(self.predicates[:10], 2)  # Use first 10 predicates
+
+            # Create a logically invalid syllogism
+            premise1 = f"all {subject1} are {predicate1}"
+            premise2 = f"all {subject2} are {predicate1}"  # This doesn't connect properly
+            conclusion = f"all {subject2} are {subject1}"  # Invalid conclusion
+
+            problem_text = f"{premise1}. {premise2}. -> {conclusion}"
+
+            # Parse the problem
+            parts = problem_text.split(" -> ")
+            if len(parts) == 2:
+                premises_text = parts[0].strip()
+                conclusion = parts[1].strip()
+                premises = [p.strip() for p in premises_text.split(".") if p.strip()]
+            else:
+                premises = []
+                conclusion = problem_text
+
+            return {
+                "premise1": premises[0] if len(premises) > 0 else "",
+                "premise2": premises[1] if len(premises) > 1 else "",
+                "conclusion": conclusion,
+                "validity": False,  # This is an invalid syllogism
+                "logical_type": LogicalType.SYLLOGISM_CLASSIC.value,
+                "problem_text": problem_text
+            }
+
     def generate_dataset(self, size: int, include_invalid: bool = True) -> List[Dict]:
         """Generate a dataset of logic samples."""
         dataset = []
-        
-        logical_types = list(LogicalType)
-        
+
         for i in range(size):
-            # Sometimes generate invalid samples
-            if include_invalid and random.random() < 0.3:  # 30% invalid
-                sample = self.generate_sample()
-                sample['validity'] = False  # Mark as invalid
-            else:
-                # Use different logical types more evenly
-                logical_type = logical_types[i % len(logical_types)]
-                sample = self.generate_sample(logical_type)
-            
+            # Use the more challenging sample generator
+            sample = self.generate_challenging_sample()
             dataset.append(sample)
-        
+
         return dataset
 
     def generate_pretraining_dataset(self, size: int = 1000) -> List[Dict]:
