@@ -107,13 +107,19 @@ class EASExperimentOrchestrator:
         eas_metrics = evaluator.evaluate_with_eas(datasets['evaluation'], num_iterations=50)
         
         # Compile results
+        baseline_acc = baseline_results['baseline']['metrics']['accuracy'][-1] if baseline_results['baseline']['metrics']['accuracy'] and len(baseline_results['baseline']['metrics']['accuracy']) > 0 else 0
+        eas_acc = eas_metrics['accuracy'][-1] if eas_metrics['accuracy'] and len(eas_metrics['accuracy']) > 0 else 0
+
+        improvement = eas_acc - baseline_acc
+
+        print(f"DEBUG: baseline_acc={baseline_acc}, eas_acc={eas_acc}, improvement={improvement}")  # Debug print
+
         results = {
-            'baseline_accuracy': baseline_results['baseline']['metrics']['accuracy'][-1] if baseline_results['baseline']['metrics']['accuracy'] else 0,
-            'eas_accuracy': eas_metrics['accuracy'][-1] if eas_metrics['accuracy'] else 0,
-            'improvement': (eas_metrics['accuracy'][-1] if eas_metrics['accuracy'] else 0) -
-                          (baseline_results['baseline']['metrics']['accuracy'][-1] if baseline_results['baseline']['metrics']['accuracy'] else 0),
+            'baseline_accuracy': baseline_acc,
+            'eas_accuracy': eas_acc,
+            'improvement': improvement,
             'baseline_results': baseline_results,
-            'eas_metrics': eas_metrics  # Fixed: was 'eas_results'
+            'eas_metrics': eas_metrics
         }
         
         self.log_progress(f"Small model validation completed. Improvement: {results['improvement']:.4f}")
@@ -214,13 +220,21 @@ class EASExperimentOrchestrator:
         self.log_progress("Running standard baselines...")
         baseline_results = self._run_standard_baselines(datasets, model, tokenizer)
         
+        # Calculate improvement for standard model results
+        baseline_acc = baseline_results['baseline']['metrics']['accuracy'][-1] if baseline_results['baseline']['metrics']['accuracy'] and len(baseline_results['baseline']['metrics']['accuracy']) > 0 else 0
+        eas_acc = eas_metrics['accuracy'][-1] if eas_metrics['accuracy'] and len(eas_metrics['accuracy']) > 0 else 0
+        improvement = eas_acc - baseline_acc
+
         # Compile results
         results = {
+            'baseline_accuracy': baseline_acc,
+            'eas_accuracy': eas_acc,
+            'improvement': improvement,
             'eas_metrics': eas_metrics,
             'baseline_results': baseline_results,
-            'final_accuracy': eas_metrics['accuracy'][-1] if eas_metrics['accuracy'] else 0
+            'final_accuracy': eas_acc
         }
-        
+
         return results
     
     def _run_standard_baselines(self, datasets, model, tokenizer) -> Dict[str, Any]:
@@ -304,21 +318,24 @@ class EASExperimentOrchestrator:
     def _generate_recommendations(self, results: Dict[str, Any], analysis: Dict[str, Any]) -> List[str]:
         """Generate recommendations based on results"""
         recommendations = []
-        
+
+        # Use the small model improvement value for decision making
         improvement = results.get('improvement', 0)
-        
+
         if improvement >= 0.20:
             recommendations.append("EAS approach shows strong evidence of effectiveness - proceed to extended experiments")
         elif improvement >= 0.10:
             recommendations.append("EAS approach shows moderate evidence of effectiveness - consider parameter optimization")
         else:
             recommendations.append("EAS approach shows limited effectiveness - consider alternative approaches or parameter adjustments")
-        
-        if analysis.get('meets_20_percent_threshold', False):
+
+        # For the second recommendation, use the analysis data which should contain the threshold check
+        # The improvement value itself should be used to determine if threshold is met
+        if improvement >= 0.20:
             recommendations.append("Significant improvement threshold met - EAS validated")
         else:
             recommendations.append("Consider hyperparameter tuning to improve EAS performance")
-        
+
         return recommendations
     
     def run_complete_experiment(self):
