@@ -15,11 +15,11 @@ class AdvancedValidationSuite:
         os.makedirs(results_dir, exist_ok=True)
 
         # Initialize Tokenizer
-        self.tokenizer = LogicTokenizer(vocab_size=500)
+        self.tokenizer = LogicTokenizer(vocab_size=1500)
 
         # Initialize Model (Mock loading if path not provided)
         # In a real scenario, we load the pre-trained weights.
-        self.model = create_standard_model(vocab_size=500)
+        self.model = create_standard_model(vocab_size=1500)
         if model_path and os.path.exists(model_path):
             self.model.load_state_dict(torch.load(model_path))
         self.model.eval()

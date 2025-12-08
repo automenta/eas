@@ -89,16 +89,8 @@ class TransformerBlock(nn.Module):
 
 class AutoregressiveTransformer(nn.Module):
     """Minimal Autoregressive Transformer for EAS"""
-    def __init__(self, vocab_size, d_model=512, num_layers=2, num_heads=8, max_seq_len=512, **kwargs):
+    def __init__(self, vocab_size, d_model=512, num_layers=2, num_heads=8, max_seq_len=512):
         super().__init__()
-
-        # Handle 'dim' alias for 'd_model' to be compatible with older/different calls
-        if 'dim' in kwargs:
-            d_model = kwargs['dim']
-        if 'depth' in kwargs:
-            num_layers = kwargs['depth']
-        if 'heads' in kwargs:
-            num_heads = kwargs['heads']
 
         self.d_model = d_model
         self.num_layers = num_layers
