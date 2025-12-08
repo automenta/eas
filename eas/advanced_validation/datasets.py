@@ -11,44 +11,6 @@ class AvicennaLoader:
     def load(self):
         return self.raw_data
 
-    def get_symbolic_mapping(self, sample):
-        """
-        Naive symbolic mapping for demonstration.
-        Maps the premise1 subject/object to A, B, and premise2 to B, C or A, C.
-        Since we don't have a parser, we will try to detect overlap.
-        """
-        # This is a placeholder for the complex task of NLP-to-Symbolic mapping
-        # without external libraries.
-        # We will assume a fixed structure for mapped samples to test "Unknown Token" handling.
-
-        # Strategy: Identify common words between P1 and P2.
-        p1_words = set(sample['premise1'].lower().split())
-        p2_words = set(sample['premise2'].lower().split())
-
-        common = p1_words.intersection(p2_words)
-
-        # If there is overlap, we treat it as the middle term 'M'.
-        # We map P1 unique words to 'S' (Subject) or 'P' (Predicate) arbitrarily
-        # This is not perfect but creates a "structure" the model *could* track if it tracks tokens.
-
-        # Better Strategy for "Realistic Model Evaluation":
-        # Don't map. Use the tokenizer's UNK handling or expanded vocab (if we could).
-        # Since we can't expand vocab on a frozen model easily without re-init,
-        # we will map the *entire sentence* to a proposition symbol.
-
-        # For Propositional Logic (Modus Ponens):
-        # If P1 implies P2. P1. -> P2.
-        # Check if P1 is roughly P -> Q.
-
-        # Actually, let's just use a "Bag of Words" mapping to the available Logic Tokens.
-        # 'Chronic' -> 'A', 'diseases' -> 'B', 'are' -> 'are', 'heart' -> 'C' ...
-
-        # Simplified:
-        # We will return the raw text, but the `AdvancedValidationSuite` will
-        # use a `SymbolicMapper` class to convert this text into a sequence of ID's
-        # that fit the model's vocab.
-        return sample
-
 class ComplexLogicGenerator:
     def __init__(self):
         self.logic_types = ['modus_ponens', 'modus_tollens', 'disjunctive_syllogism', 'chain_rule']
@@ -59,9 +21,10 @@ class ComplexLogicGenerator:
 
         if ltype == 'modus_ponens':
             # If P then Q. P. -> Q
-            P = f"{random.choice(self.entities)}_is_true"
-            Q = f"{random.choice(self.entities)}_is_true"
-            while P == Q: Q = f"{random.choice(self.entities)}_is_true"
+            # Change P from "A_is_true" to "A is true" to avoid UNK tokens
+            P = f"{random.choice(self.entities)} is true"
+            Q = f"{random.choice(self.entities)} is true"
+            while P == Q: Q = f"{random.choice(self.entities)} is true"
 
             p1 = f"If {P} then {Q}"
             p2 = f"{P}"
@@ -69,9 +32,9 @@ class ComplexLogicGenerator:
 
         elif ltype == 'modus_tollens':
             # If P then Q. Not Q. -> Not P.
-            P = f"{random.choice(self.entities)}_is_true"
-            Q = f"{random.choice(self.entities)}_is_true"
-            while P == Q: Q = f"{random.choice(self.entities)}_is_true"
+            P = f"{random.choice(self.entities)} is true"
+            Q = f"{random.choice(self.entities)} is true"
+            while P == Q: Q = f"{random.choice(self.entities)} is true"
 
             p1 = f"If {P} then {Q}"
             p2 = f"Not {Q}"
@@ -79,9 +42,9 @@ class ComplexLogicGenerator:
 
         elif ltype == 'disjunctive_syllogism':
             # P or Q. Not P. -> Q.
-            P = f"{random.choice(self.entities)}_is_true"
-            Q = f"{random.choice(self.entities)}_is_true"
-            while P == Q: Q = f"{random.choice(self.entities)}_is_true"
+            P = f"{random.choice(self.entities)} is true"
+            Q = f"{random.choice(self.entities)} is true"
+            while P == Q: Q = f"{random.choice(self.entities)} is true"
 
             p1 = f"{P} or {Q}"
             p2 = f"Not {P}"

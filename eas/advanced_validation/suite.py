@@ -7,6 +7,7 @@ from eas.advanced_validation.datasets import AvicennaLoader, ComplexLogicGenerat
 import time
 import json
 import os
+import re
 
 class AdvancedValidationSuite:
     def __init__(self, model_path=None, results_dir="eas/advanced_validation/results"):
@@ -23,8 +24,14 @@ class AdvancedValidationSuite:
             self.model.load_state_dict(torch.load(model_path))
         self.model.eval()
 
+        # Check device
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.model.to(self.device)
+
         # Initialize Watcher (default settings from README)
         self.watcher = EmergentWatcher(dim=512, k=10, alpha_base=0.3)
+        self.watcher.to(self.device)
+        self.watcher.attractor_memory.attractors.data = self.watcher.attractor_memory.attractors.data.to(self.device)
 
         # Data
         self.complex_gen = ComplexLogicGenerator()
@@ -34,21 +41,29 @@ class AdvancedValidationSuite:
         self.results = []
 
     def _encode_sample(self, text):
-        """Encodes text to input tensor using naive symbolic mapping for unknown words"""
-        tokens = text.split()
+        """Encodes text using tokenizer and consistent mapping for unknowns"""
+        # Tokenize using the tokenizer logic (regex based)
+        tokens = self.tokenizer.tokenize(text)
         token_ids = []
-        mapping = {}
-        # We reuse mapping to keep consistency within a sample but here we just need IDS
-        # But wait, we need consistency across P1/P2.
-        # Simple hack: just hash words to 0-500 range (excluding special tokens)
+
+        # For validation, we don't strictly need persistent mapping across calls
+        # because the model is context-window based.
+        # But we must respect the vocab.
+
         for w in tokens:
             if w in self.tokenizer.vocab:
                 token_ids.append(self.tokenizer.vocab[w])
+            elif w.upper() in self.tokenizer.vocab:
+                token_ids.append(self.tokenizer.vocab[w.upper()])
+            elif w.lower() in self.tokenizer.vocab:
+                token_ids.append(self.tokenizer.vocab[w.lower()])
+            elif '<UNK>' in self.tokenizer.vocab:
+                token_ids.append(self.tokenizer.vocab['<UNK>'])
             else:
-                # Deterministic hash to keep same word -> same ID
-                h = abs(hash(w)) % (490) + 10 # 10-499
-                token_ids.append(h)
-        return torch.tensor([token_ids], dtype=torch.long)
+                # Should not happen if tokenizer is init correctly
+                token_ids.append(1)
+
+        return torch.tensor([token_ids], dtype=torch.long).to(self.device)
 
     def run_scenario(self, scenario_name, dataset_name, intervention_type="none", num_samples=50):
         print(f"Running Scenario: {scenario_name} on {dataset_name} ({intervention_type})")
@@ -74,97 +89,54 @@ class AdvancedValidationSuite:
 
         # Hook management
         if intervention_type in ["standard", "adversarial"]:
-            # Register Watcher hook
-            # Assuming watcher.snap is the intervention function
-            # And it matches the signature expected by model hook
             self.model.register_intervention_hook(self.model.middle_layer_idx, self.watcher.snap)
         else:
             self.model.remove_intervention_hook(self.model.middle_layer_idx)
 
         for sample in data:
             start_time = time.time()
-            input_tensor = self._encode_sample(sample['text'])
+            input_tensor = self._encode_sample(sample['text'] + " ->")
+
+            # Truncate if too long (max 64 for small training)
+            if input_tensor.size(1) > 64:
+                input_tensor = input_tensor[:, -64:]
 
             # Run Inference
             with torch.no_grad():
-                # For EAS to work, we need to UPDATE the watcher on success.
-                # But we don't know success yet.
-                # EAS protocol:
-                # 1. Forward pass (snapped if hook active)
-                # 2. Check correctness
-                # 3. If correct -> watcher.update()
-
-                # To simulate "Online Learning", we must update the watcher during this loop.
-
-                # Forward pass
-                # We need to capture the activation to update the watcher later
-                # The hook does modification.
-                # We need the "snapped" activation for update?
-                # README says: "Add the successful v_norm to a batch buffer."
-                # The watcher.snap() modifies the activation in place.
-                # We assume watcher handles its own state or we need access to the activation.
-                # In this simplified suite, we will let the watcher manage its internal state if implemented.
-                # Wait, I implemented `EmergentWatcher`? No, I need to check `eas/src/watcher/__init__.py`.
-                # The prompt said "Current Files Structure: ... Watcher: .../__init__.py".
-                # I should check if it exists and has the methods.
-
                 output = self.model(input_tensor)
 
             latencies.append(time.time() - start_time)
 
-            # Check Correctness (Mock Oracle)
-            # Since model is random, we simulate a 50% chance if we are checking "effectiveness".
-            # BUT, checking actual effectiveness means checking ACTUAL output.
-            # My sanity check showed it outputs "TOK_161" repeatedly.
-            # So it will be 0% correct.
-            # Unless the target happens to be "TOK_161".
+            # Decode output (Next Token Prediction)
+            next_token_logits = output[0, -1, :]
+            next_token_id = torch.argmax(next_token_logits).item()
+            decoded = self.tokenizer.decode([next_token_id])
 
-            # To perform a "Simulation" of EAS effectiveness as requested by user (evaluating the *approach*),
-            # I must allow the possibility of learning.
-            # If the model is frozen and garbage, EAS is garbage.
-            # I will record the ACTUAL output.
+            # Check Correctness
+            # Target might be "B is true" or "yes"
+            target = sample['target']
 
-            # For Avicenna (Binary Classification):
-            # We check if output maps to "yes" or "no".
-            # We don't have a classification head, just language modeling.
-            # We check probability of "yes" vs "no" tokens?
-            # Or generate text.
+            # For complex logic: Target "B is true". Decoded "B"
+            # For avicenna: Target "yes". Decoded "yes"
 
-            # Let's assume we are generating.
-            # If generated text contains the answer.
+            is_correct = False
 
-            # Since I know the model is random, I will simulate "Oracle" behavior
-            # ONLY IF the user wants a simulation.
-            # But the user asked for "Realistic model evaluation".
-            # So I must report 0% accuracy if that's what it is.
+            # Compare first word/token match
+            target_first_token = target.split()[0]
+            decoded_clean = decoded.strip().lower()
+            target_clean = target_first_token.strip().lower()
 
-            # However, to test the *Watcher's* code, I need to call update() sometimes.
-            # I will randomly call update() with a small prob to verify the mechanism works,
-            # or better, force update() on the first few samples to see if it crashes.
-
-            # Actually, I should check if the prediction is correct.
-            # If the model outputs nonsense, it's incorrect.
-            # Correct = 0.
-
-            is_correct = False # Placeholder for actual check
-
-            # Real check:
-            # Decode output
-            next_token = torch.argmax(output[0, -1, :]).item()
-            decoded = self.tokenizer.decode([next_token])
-
-            # Compare with target
-            # Target might be "C_is_true". Decoded "C".
-            if decoded in sample['target']:
+            if decoded_clean == target_clean:
                 is_correct = True
+            # Check if decoded is contained in target (e.g. "B" in "B is true")
+            elif decoded_clean in target.lower().split():
+                 is_correct = True
 
             if is_correct:
                 correct_count += 1
-                # Update Watcher
-                # We need the activation that resulted in this success.
-                # The model stores it in `layer_activations`.
+                # Update Watcher on success
                 hidden = self.model.get_layer_activation(self.model.middle_layer_idx)
-                if intervention_type in ["standard", "adversarial"]:
+                if intervention_type in ["standard", "adversarial"] and hidden is not None:
                     self.watcher.update(hidden)
 
         accuracy = correct_count / len(data) if data else 0
@@ -184,19 +156,3 @@ class AdvancedValidationSuite:
     def save_results(self):
         with open(os.path.join(self.results_dir, "validation_results.json"), 'w') as f:
             json.dump(self.results, f, indent=2)
-
-if __name__ == "__main__":
-    suite = AdvancedValidationSuite()
-
-    # 1. Baseline
-    suite.run_scenario("Baseline", "complex_synthetic", intervention_type="none")
-    suite.run_scenario("Baseline", "avicenna", intervention_type="none")
-
-    # 2. EAS Standard
-    suite.run_scenario("EAS_Standard", "complex_synthetic", intervention_type="standard")
-    suite.run_scenario("EAS_Standard", "avicenna", intervention_type="standard")
-
-    # 3. EAS Adversarial
-    suite.run_scenario("EAS_Adversarial", "complex_synthetic", intervention_type="adversarial")
-
-    suite.save_results()

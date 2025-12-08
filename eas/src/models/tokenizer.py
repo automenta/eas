@@ -52,7 +52,8 @@ class LogicTokenizer:
             
         # Define common logical subjects and predicates
         self.common_entities = [
-            'A', 'B', 'C', 'X', 'Y', 'Z', 'S', 'P', 'Q', 'R', 'M', 'N',
+            'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N',
+            'X', 'Y', 'Z', 'S', 'P', 'Q', 'R',
             'person', 'human', 'man', 'woman', 'child', 'animal', 'dog', 'cat', 
             'mammal', 'bird', 'fish', 'reptile', 'amphibian', 'animal',
             'object', 'thing', 'item', 'entity', 'individual', 'being',
@@ -116,8 +117,7 @@ class LogicTokenizer:
     
     def tokenize(self, text: str) -> List[str]:
         """Tokenize a text string into logical tokens"""
-        # Normalize the text
-        text = text.lower()
+        # Normalize the text? No, preserve case to check against case-sensitive vocab first
         
         # Split on common delimiters while preserving them
         # Use regex to capture punctuation and spaces as separate tokens
@@ -128,16 +128,20 @@ class LogicTokenizer:
         for token in tokens:
             # Clean up the token - remove extra punctuation
             clean_token = token.strip(".,!?;:'\"()[]{}")
+            if not clean_token:
+                continue
+
+            # Check exact match
             if clean_token in self.vocab:
                 processed_tokens.append(clean_token)
+            # Check upper case match (for logical ops like NOT, AND)
+            elif clean_token.upper() in self.vocab:
+                processed_tokens.append(clean_token.upper())
+            # Check lower case match
             elif clean_token.lower() in self.vocab:
                 processed_tokens.append(clean_token.lower())
             else:
-                # Try to find partial matches or known patterns
-                if any(q in clean_token for q in self.quantifiers):
-                    processed_tokens.append('<UNK>')
-                else:
-                    processed_tokens.append('<UNK>')
+                processed_tokens.append('<UNK>')
                     
         return processed_tokens
     
