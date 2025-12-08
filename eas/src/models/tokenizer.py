@@ -40,7 +40,8 @@ class LogicTokenizer:
             
         # Define quantifiers
         self.quantifiers = [
-            'all', 'some', 'no', 'every', 'each', 'any', 'most', 'few', 'many', 'several'
+            'all', 'some', 'no', 'every', 'each', 'any', 'most', 'few', 'many', 'several',
+            'yes', 'true', 'false', 'correct', 'incorrect'
         ]
         
         # Add quantifiers to vocabulary
