@@ -8,6 +8,7 @@ import time
 import json
 import os
 import re
+import random
 
 class AdvancedValidationSuite:
     def __init__(self, model_path=None, results_dir="eas/advanced_validation/results"):
@@ -30,6 +31,7 @@ class AdvancedValidationSuite:
         self.model.to(self.device)
 
         # Initialize Watcher (default settings from README)
+        # We'll re-initialize this properly when a model is injected
         self.watcher = EmergentWatcher(dim=512, k=10, alpha_base=0.3)
         self.watcher.to(self.device)
         self.watcher.attractor_memory.attractors.data = self.watcher.attractor_memory.attractors.data.to(self.device)
@@ -40,6 +42,23 @@ class AdvancedValidationSuite:
 
         # Metrics storage
         self.results = []
+
+        # Pre-load Avicenna data for splitting
+        self.avicenna_data = []
+        raw_avicenna = self.avicenna_loader.load()
+        for d in raw_avicenna:
+            self.avicenna_data.append({
+                "text": d['premise1'] + " " + d['premise2'],
+                "target": d['label'],
+                "type": "real"
+            })
+
+        # Split Avicenna (Simple 50/50 split for small dataset)
+        random.seed(42) # Ensure repeatability
+        random.shuffle(self.avicenna_data)
+        split_idx = len(self.avicenna_data) // 2
+        self.avicenna_warmup = self.avicenna_data[:split_idx]
+        self.avicenna_test = self.avicenna_data[split_idx:]
 
     def _encode_sample(self, text):
         """Encodes text using tokenizer."""
@@ -67,58 +86,38 @@ class AdvancedValidationSuite:
 
             return torch.tensor([token_ids], dtype=torch.long).to(self.device)
 
-    def warmup_watcher(self, num_samples=100):
+    def warmup_watcher(self, num_samples=100, dataset_type="synthetic"):
         """
         Supervised Warmup for the Watcher.
-        Initializes the attractors with activations from 'correct' reasoning paths.
-        This solves the Cold Start problem by explicitly seeding the geometric clusters.
+        dataset_type: 'synthetic' or 'avicenna'
         """
-        print(f"Warming up Watcher with {num_samples} supervised samples...")
+        print(f"Warming up Watcher with {num_samples} supervised samples ({dataset_type})...")
 
-        # Disable intervention during warmup (we want to capture pure model states,
-        # or maybe we want to just capture the 'good' ones?)
-        # Actually, for warmup, we just want to feed it good data.
+        # Disable intervention during warmup
         self.model.remove_intervention_hook(self.model.middle_layer_idx)
 
-        # Generate simple data for warmup
-        data = self.complex_gen.generate_dataset(size=num_samples, distractors=False)
+        data = []
+        if dataset_type == "synthetic":
+            data = self.complex_gen.generate_dataset(size=num_samples, distractors=False)
+        elif dataset_type == "avicenna":
+            data = self.avicenna_warmup
+            if num_samples < len(data):
+                 data = data[:num_samples]
+
+        # Attach passive hook to capture activations
+        def passive_hook(activations):
+            return activations
+        self.model.register_intervention_hook(self.model.middle_layer_idx, passive_hook)
 
         for sample in data:
-            # Construct the FULL correct sequence "Premise -> Conclusion"
-            # In a Causal LM, we want to capture the activation at the last token of the prompt
-            # (where the decision is made) or throughout the generation of the answer.
-            # Let's feed the full "Question Answer" string.
-
-            # Simple prompt format for Pythia
             full_text = f"Question: {sample['text']}\nAnswer: {sample['target']}"
             input_tensor = self._encode_sample(full_text)
 
             with torch.no_grad():
                 self.model(input_tensor)
 
-            # Capture the activation
-            # The hook is gone, so we need to manually grab it or re-enable a capture-only hook?
-            # The model wrapper stores `layer_activations`.
-            # BUT, `layer_activations` is populated by the hook.
-            # So we need a hook that DOES NOT intervene but DOES store.
-
-            # Let's attach a passive hook
-            def passive_hook(activations):
-                return activations # No change
-
-            self.model.register_intervention_hook(self.model.middle_layer_idx, passive_hook)
-
-            # Re-run with hook
-            with torch.no_grad():
-                self.model(input_tensor)
-
-            # Get activation
             hidden = self.model.get_layer_activation(self.model.middle_layer_idx)
 
-            # We want the activation corresponding to the *answer* part.
-            # This is tricky with casual masking.
-            # Let's just take the mean of the whole sequence for now, or the last token.
-            # Logic: The representation of the final answer generation is what matters.
             if hidden is not None:
                 self.watcher.update(hidden)
 
@@ -131,22 +130,13 @@ class AdvancedValidationSuite:
         if dataset_name == "complex_synthetic":
             data = self.complex_gen.generate_dataset(size=num_samples, distractors=(intervention_type=="adversarial"))
         elif dataset_name == "avicenna":
-            raw_data = self.avicenna_loader.load()
-            # Convert to list of dicts with 'text' and 'target'
-            data = []
-            for d in raw_data:
-                data.append({
-                    "text": d['premise1'] + " " + d['premise2'],
-                    "target": d['label'], # 'yes' or 'no'
-                    "type": "real"
-                })
-            # Limit to num_samples
-            data = data[:num_samples]
+            data = self.avicenna_test
+            if num_samples < len(data):
+                data = data[:num_samples]
 
         correct_count = 0
         latencies = []
 
-        # Hook management
         if intervention_type in ["standard", "adversarial"]:
             self.model.register_intervention_hook(self.model.middle_layer_idx, self.watcher.snap)
         else:
@@ -154,45 +144,33 @@ class AdvancedValidationSuite:
 
         for sample in data:
             start_time = time.time()
-
-            # improved prompt format
             prompt = f"Question: {sample['text']}\nAnswer:"
             input_tensor = self._encode_sample(prompt)
 
-            # Truncate if too long (max 64 for small training)
-            # Pretrained models can handle longer, but let's keep it safe
             if input_tensor.size(1) > 128:
                 input_tensor = input_tensor[:, -128:]
 
-            # Run Inference
             with torch.no_grad():
                 output = self.model(input_tensor)
 
             latencies.append(time.time() - start_time)
 
-            # Decode output (Next Token Prediction)
-            # output is logits [batch, seq_len, vocab_size]
             next_token_logits = output[0, -1, :]
             next_token_id = torch.argmax(next_token_logits).item()
-
             decoded = self.tokenizer.decode([next_token_id])
 
-            # Check Correctness
             target = sample['target']
             is_correct = False
 
-            # Compare first word/token match
             target_first_token = target.split()[0]
             decoded_clean = decoded.strip().lower()
             target_clean = target_first_token.strip().lower()
 
-            # Pretrained models might output " Yes" or "Yes" or "\nyes"
             if target_clean in decoded_clean:
                 is_correct = True
             elif decoded_clean in target_clean and len(decoded_clean) > 1:
                 is_correct = True
 
-            # Simple fallback for yes/no
             if target_clean in ['yes', 'true'] and decoded_clean in ['yes', 'true', 'correct']:
                 is_correct = True
             if target_clean in ['no', 'false'] and decoded_clean in ['no', 'false', 'incorrect']:
@@ -200,7 +178,6 @@ class AdvancedValidationSuite:
 
             if is_correct:
                 correct_count += 1
-                # Update Watcher on success
                 hidden = self.model.get_layer_activation(self.model.middle_layer_idx)
                 if intervention_type in ["standard", "adversarial"] and hidden is not None:
                     self.watcher.update(hidden)
@@ -214,11 +191,86 @@ class AdvancedValidationSuite:
             "intervention": intervention_type,
             "accuracy": accuracy,
             "latency": avg_latency,
-            "samples": num_samples
+            "samples": len(data)
         }
         self.results.append(result)
         return result
 
-    def save_results(self):
-        with open(os.path.join(self.results_dir, "validation_results.json"), 'w') as f:
-            json.dump(self.results, f, indent=2)
+    def reset_watcher(self):
+        """Resets the watcher state for a new trial"""
+        # Re-initialize the watcher to match the current model dimension
+        if self.is_pretrained:
+            dim = self.model.d_model
+        else:
+            dim = 512 # toy default
+
+        self.watcher = EmergentWatcher(dim=dim, k=10, alpha_base=0.3)
+        self.watcher.to(self.device)
+
+    def run_multiple_trials(self, num_trials=5):
+        """Runs the entire suite multiple times and aggregates results"""
+        print(f"Starting {num_trials}-Trial Robustness Validation...")
+        aggregated_results = {}
+
+        for trial in range(num_trials):
+            print(f"\n--- TRIAL {trial+1}/{num_trials} ---")
+            self.reset_watcher()
+
+            # Warmup Phase (Mix of Synthetic and Avicenna-Train)
+            self.warmup_watcher(num_samples=50, dataset_type="synthetic")
+            self.warmup_watcher(num_samples=20, dataset_type="avicenna")
+
+            res_base_syn = self.run_scenario("Baseline", "complex_synthetic", "none", 50)
+            res_base_avi = self.run_scenario("Baseline", "avicenna", "none", 20)
+
+            res_eas_syn = self.run_scenario("EAS_Standard", "complex_synthetic", "standard", 50)
+            res_eas_avi = self.run_scenario("EAS_Standard", "avicenna", "standard", 20)
+
+            res_adv_syn = self.run_scenario("EAS_Adversarial", "complex_synthetic", "adversarial", 50)
+
+            # Aggregate
+            results_list = [res_base_syn, res_base_avi, res_eas_syn, res_eas_avi, res_adv_syn]
+
+            for res in results_list:
+                key = (res['scenario'], res['dataset'], res['intervention'])
+                if key not in aggregated_results:
+                    aggregated_results[key] = {'accuracy': [], 'latency': []}
+                aggregated_results[key]['accuracy'].append(res['accuracy'])
+                aggregated_results[key]['latency'].append(res['latency'])
+
+        # Compute Statistics
+        final_stats = []
+        print("\n=== FINAL ROBUSTNESS REPORT ===")
+        print(f"{'Scenario':<20} | {'Dataset':<20} | {'Mean Acc':<10} | {'Std Dev':<10} | {'Improvement'}")
+        print("-" * 90)
+
+        baseline_means = {}
+        for key, vals in aggregated_results.items():
+            if key[2] == 'none':
+                baseline_means[key[1]] = np.mean(vals['accuracy'])
+
+        for key, vals in aggregated_results.items():
+            mean_acc = np.mean(vals['accuracy'])
+            std_acc = np.std(vals['accuracy'])
+            mean_lat = np.mean(vals['latency'])
+
+            imp_str = "-"
+            if key[2] != 'none':
+                base_mean = baseline_means.get(key[1], 0)
+                improvement = mean_acc - base_mean
+                imp_str = f"{improvement:+.4f}"
+
+            print(f"{key[0]:<20} | {key[1]:<20} | {mean_acc:.4f}     | {std_acc:.4f}     | {imp_str}")
+
+            final_stats.append({
+                "scenario": key[0],
+                "dataset": key[1],
+                "intervention": key[2],
+                "mean_accuracy": mean_acc,
+                "std_accuracy": std_acc,
+                "mean_latency": mean_lat,
+                "trials": num_trials
+            })
+
+        self.results = final_stats
+        return final_stats

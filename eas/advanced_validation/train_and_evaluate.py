@@ -1,55 +1,83 @@
 import torch
 from eas.src.models.transformer import PretrainedTransformer
 from eas.advanced_validation.suite import AdvancedValidationSuite
-from eas.advanced_validation.analysis import run_analysis
 import os
 import sys
+import json
 
 # Ensure project root is in path
 sys.path.append(os.getcwd())
 
-def train_and_evaluate():
-    print("Initializing Pre-trained Model for Validation...")
+def evaluate_model(model_name):
+    print(f"\n{'='*60}")
+    print(f"EVALUATING MODEL: {model_name}")
+    print(f"{'='*60}")
 
-    # 1. Initialize Model (Pre-trained)
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    model = PretrainedTransformer(model_name="EleutherAI/pythia-70m", device=device)
+    try:
+        model = PretrainedTransformer(model_name=model_name, device=device)
+    except Exception as e:
+        print(f"Failed to load model {model_name}: {e}")
+        return None
 
-    # 2. Skip Training (It's pre-trained!)
-    print("Model loaded (Frozen). Skipping training.")
-
-    # 3. Inject Model into Suite (In-Memory)
-    # The suite usually instantiates its own model. We need to override it.
+    # Inject Model into Suite
     suite = AdvancedValidationSuite(model_path=None)
     suite.model = model
-    # Also need to make sure suite uses the correct tokenizer!
     suite.tokenizer = model.tokenizer
     suite.is_pretrained = True
 
-    # 3.5 Warmup Watcher (Supervised Initialization)
-    # This solves the Cold Start problem by seeding attractors with correct logic.
-    print("\nWarming up Watcher (Supervised Initialization)...")
-    suite.warmup_watcher(num_samples=50)
+    # Run Rigorous Multi-Trial Validation (Reduced to 3 trials for speed in multi-model context)
+    stats = suite.run_multiple_trials(num_trials=3)
+    return stats
 
-    # 4. Run Scenarios
-    # Baseline
-    print("\nRunning Baseline Scenarios...")
-    suite.run_scenario("Baseline", "complex_synthetic", intervention_type="none", num_samples=30)
-    suite.run_scenario("Baseline", "avicenna", intervention_type="none", num_samples=20)
+def main():
+    models_to_test = ["EleutherAI/pythia-70m", "openai-community/gpt2"]
 
-    # EAS Standard
-    print("\nRunning EAS Standard Scenarios...")
-    suite.run_scenario("EAS_Standard", "complex_synthetic", intervention_type="standard", num_samples=30)
-    suite.run_scenario("EAS_Standard", "avicenna", intervention_type="standard", num_samples=20)
+    all_results = {}
 
-    # EAS Adversarial
-    print("\nRunning EAS Adversarial Scenarios...")
-    suite.run_scenario("EAS_Adversarial", "complex_synthetic", intervention_type="adversarial", num_samples=30)
+    for model_name in models_to_test:
+        stats = evaluate_model(model_name)
+        if stats:
+            all_results[model_name] = stats
 
-    print("\nSaving results...")
-    suite.save_results()
-    print("Running analysis...")
-    run_analysis()
+    # Save consolidated results
+    with open("eas/advanced_validation/results/multi_model_results.json", "w") as f:
+        json.dump(all_results, f, indent=2)
+
+    # Generate Markdown Report
+    generate_markdown_report(all_results)
+
+def generate_markdown_report(all_results):
+    report = "# EAS Multi-Model Validation Report\n\n"
+
+    for model_name, stats in all_results.items():
+        report += f"## Model: {model_name}\n\n"
+        report += f"| Scenario | Dataset | Mean Acc | Std Dev | Improvement |\n"
+        report += f"|---|---|---|---|---|\n"
+
+        # Find baseline
+        baseline_map = {}
+        for s in stats:
+            if s['intervention'] == 'none':
+                baseline_map[s['dataset']] = s['mean_accuracy']
+
+        for s in stats:
+            dataset = s['dataset']
+            mean_acc = s['mean_accuracy']
+            std_acc = s['std_accuracy']
+
+            imp_str = "-"
+            if s['intervention'] != 'none':
+                base = baseline_map.get(dataset, 0)
+                diff = mean_acc - base
+                imp_str = f"**{diff:+.4f}**"
+
+            report += f"| {s['scenario']} | {dataset} | {mean_acc:.4f} | {std_acc:.4f} | {imp_str} |\n"
+        report += "\n"
+
+    with open("VALIDATION_REPORT.md", "w") as f:
+        f.write(report)
+    print("\nReport saved to VALIDATION_REPORT.md")
 
 if __name__ == "__main__":
-    train_and_evaluate()
+    main()

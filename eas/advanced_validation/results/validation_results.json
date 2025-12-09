@@ -3,8 +3,8 @@
     "scenario": "Baseline",
     "dataset": "complex_synthetic",
     "intervention": "none",
-    "accuracy": 0.03333333333333333,
-    "latency": 0.026494272549947104,
+    "accuracy": 0.23333333333333334,
+    "latency": 0.0035483280817667643,
     "samples": 30
   },
   {
@@ -12,15 +12,15 @@
     "dataset": "avicenna",
     "intervention": "none",
     "accuracy": 0.0,
-    "latency": 0.04429659843444824,
+    "latency": 0.004618287086486816,
     "samples": 20
   },
   {
     "scenario": "EAS_Standard",
     "dataset": "complex_synthetic",
     "intervention": "standard",
-    "accuracy": 0.2,
-    "latency": 0.020726323127746582,
+    "accuracy": 0.23333333333333334,
+    "latency": 0.004263432820638021,
     "samples": 30
   },
   {
@@ -28,15 +28,15 @@
     "dataset": "avicenna",
     "intervention": "standard",
     "accuracy": 0.0,
-    "latency": 0.0285599946975708,
+    "latency": 0.005322563648223877,
     "samples": 20
   },
   {
     "scenario": "EAS_Adversarial",
     "dataset": "complex_synthetic",
     "intervention": "adversarial",
-    "accuracy": 0.06666666666666667,
-    "latency": 0.026728741327921548,
+    "accuracy": 0.03333333333333333,
+    "latency": 0.004592545827229818,
     "samples": 30
   }
 ]
