@@ -67,6 +67,63 @@ class AdvancedValidationSuite:
 
             return torch.tensor([token_ids], dtype=torch.long).to(self.device)
 
+    def warmup_watcher(self, num_samples=100):
+        """
+        Supervised Warmup for the Watcher.
+        Initializes the attractors with activations from 'correct' reasoning paths.
+        This solves the Cold Start problem by explicitly seeding the geometric clusters.
+        """
+        print(f"Warming up Watcher with {num_samples} supervised samples...")
+
+        # Disable intervention during warmup (we want to capture pure model states,
+        # or maybe we want to just capture the 'good' ones?)
+        # Actually, for warmup, we just want to feed it good data.
+        self.model.remove_intervention_hook(self.model.middle_layer_idx)
+
+        # Generate simple data for warmup
+        data = self.complex_gen.generate_dataset(size=num_samples, distractors=False)
+
+        for sample in data:
+            # Construct the FULL correct sequence "Premise -> Conclusion"
+            # In a Causal LM, we want to capture the activation at the last token of the prompt
+            # (where the decision is made) or throughout the generation of the answer.
+            # Let's feed the full "Question Answer" string.
+
+            # Simple prompt format for Pythia
+            full_text = f"Question: {sample['text']}\nAnswer: {sample['target']}"
+            input_tensor = self._encode_sample(full_text)
+
+            with torch.no_grad():
+                self.model(input_tensor)
+
+            # Capture the activation
+            # The hook is gone, so we need to manually grab it or re-enable a capture-only hook?
+            # The model wrapper stores `layer_activations`.
+            # BUT, `layer_activations` is populated by the hook.
+            # So we need a hook that DOES NOT intervene but DOES store.
+
+            # Let's attach a passive hook
+            def passive_hook(activations):
+                return activations # No change
+
+            self.model.register_intervention_hook(self.model.middle_layer_idx, passive_hook)
+
+            # Re-run with hook
+            with torch.no_grad():
+                self.model(input_tensor)
+
+            # Get activation
+            hidden = self.model.get_layer_activation(self.model.middle_layer_idx)
+
+            # We want the activation corresponding to the *answer* part.
+            # This is tricky with casual masking.
+            # Let's just take the mean of the whole sequence for now, or the last token.
+            # Logic: The representation of the final answer generation is what matters.
+            if hidden is not None:
+                self.watcher.update(hidden)
+
+        print("Watcher warmup complete.")
+
     def run_scenario(self, scenario_name, dataset_name, intervention_type="none", num_samples=50):
         print(f"Running Scenario: {scenario_name} on {dataset_name} ({intervention_type})")
 
@@ -97,7 +154,9 @@ class AdvancedValidationSuite:
 
         for sample in data:
             start_time = time.time()
-            prompt = sample['text'] + " ->"
+
+            # improved prompt format
+            prompt = f"Question: {sample['text']}\nAnswer:"
             input_tensor = self._encode_sample(prompt)
 
             # Truncate if too long (max 64 for small training)
@@ -116,10 +175,7 @@ class AdvancedValidationSuite:
             next_token_logits = output[0, -1, :]
             next_token_id = torch.argmax(next_token_logits).item()
 
-            if self.is_pretrained:
-                decoded = self.tokenizer.decode([next_token_id])
-            else:
-                decoded = self.tokenizer.decode([next_token_id])
+            decoded = self.tokenizer.decode([next_token_id])
 
             # Check Correctness
             target = sample['target']

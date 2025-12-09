@@ -26,6 +26,11 @@ def train_and_evaluate():
     suite.tokenizer = model.tokenizer
     suite.is_pretrained = True
 
+    # 3.5 Warmup Watcher (Supervised Initialization)
+    # This solves the Cold Start problem by seeding attractors with correct logic.
+    print("\nWarming up Watcher (Supervised Initialization)...")
+    suite.warmup_watcher(num_samples=50)
+
     # 4. Run Scenarios
     # Baseline
     print("\nRunning Baseline Scenarios...")
