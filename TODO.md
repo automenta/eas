@@ -8,7 +8,7 @@ This document outlines the strategic direction for the Emergent Activation Snapp
 *   **Goal:** Understand why EAS works on Pythia-70m (+17%) but degrades GPT-2 (-18%).
 *   **Hypothesis:** The "middle layer" heuristic is insufficient. Different architectures store logical features at different depths.
 *   **Tasks:**
-    - [ ] Implement an automated **Layer Sweep**: Run validation across *all* layers of GPT-2 to find the optimal intervention point.
+    - [x] Implement an automated **Layer Sweep**: Run validation across *all* layers of GPT-2 to find the optimal intervention point. (Result: Negative across all layers. Best: Layer 9).
     - [ ] Implement an **Alpha Sweep**: Test varying intervention strengths ($\alpha \in [0.1, 0.9]$) to see if GPT-2 requires subtler nudges.
     - [ ] Compare attention head usage between Pythia and GPT-2 during logical inference.
 
