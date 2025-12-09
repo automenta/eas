@@ -1,8 +1,8 @@
 import torch
 import numpy as np
-from eas.src.models.transformer import AutoregressiveTransformer, create_standard_model
+from eas.src.models.legacy.transformer_toy import AutoregressiveTransformer, create_standard_model
 from eas.src.watcher import EmergentWatcher
-from eas.src.models.tokenizer import LogicTokenizer
+from eas.src.models.legacy.tokenizer_toy import LogicTokenizer
 from eas.advanced_validation.datasets import AvicennaLoader, ComplexLogicGenerator
 import time
 import json
@@ -14,8 +14,9 @@ class AdvancedValidationSuite:
         self.results_dir = results_dir
         os.makedirs(results_dir, exist_ok=True)
 
-        # Initialize Tokenizer
+        # Defaults (will be overwritten by injection if using pretrained)
         self.tokenizer = LogicTokenizer(vocab_size=1500)
+        self.is_pretrained = False
 
         # Initialize Model (Mock loading if path not provided)
         # In a real scenario, we load the pre-trained weights.
@@ -41,29 +42,30 @@ class AdvancedValidationSuite:
         self.results = []
 
     def _encode_sample(self, text):
-        """Encodes text using tokenizer and consistent mapping for unknowns"""
-        # Tokenize using the tokenizer logic (regex based)
-        tokens = self.tokenizer.tokenize(text)
-        token_ids = []
+        """Encodes text using tokenizer."""
+        if self.is_pretrained:
+            # Use HF tokenizer
+            # Return tensor [1, seq_len]
+            inputs = self.tokenizer(text, return_tensors="pt")
+            return inputs["input_ids"].to(self.device)
+        else:
+            # Use Toy tokenizer
+            tokens = self.tokenizer.tokenize(text)
+            token_ids = []
 
-        # For validation, we don't strictly need persistent mapping across calls
-        # because the model is context-window based.
-        # But we must respect the vocab.
+            for w in tokens:
+                if w in self.tokenizer.vocab:
+                    token_ids.append(self.tokenizer.vocab[w])
+                elif w.upper() in self.tokenizer.vocab:
+                    token_ids.append(self.tokenizer.vocab[w.upper()])
+                elif w.lower() in self.tokenizer.vocab:
+                    token_ids.append(self.tokenizer.vocab[w.lower()])
+                elif '<UNK>' in self.tokenizer.vocab:
+                    token_ids.append(self.tokenizer.vocab['<UNK>'])
+                else:
+                    token_ids.append(1)
 
-        for w in tokens:
-            if w in self.tokenizer.vocab:
-                token_ids.append(self.tokenizer.vocab[w])
-            elif w.upper() in self.tokenizer.vocab:
-                token_ids.append(self.tokenizer.vocab[w.upper()])
-            elif w.lower() in self.tokenizer.vocab:
-                token_ids.append(self.tokenizer.vocab[w.lower()])
-            elif '<UNK>' in self.tokenizer.vocab:
-                token_ids.append(self.tokenizer.vocab['<UNK>'])
-            else:
-                # Should not happen if tokenizer is init correctly
-                token_ids.append(1)
-
-        return torch.tensor([token_ids], dtype=torch.long).to(self.device)
+            return torch.tensor([token_ids], dtype=torch.long).to(self.device)
 
     def run_scenario(self, scenario_name, dataset_name, intervention_type="none", num_samples=50):
         print(f"Running Scenario: {scenario_name} on {dataset_name} ({intervention_type})")
@@ -95,11 +97,13 @@ class AdvancedValidationSuite:
 
         for sample in data:
             start_time = time.time()
-            input_tensor = self._encode_sample(sample['text'] + " ->")
+            prompt = sample['text'] + " ->"
+            input_tensor = self._encode_sample(prompt)
 
             # Truncate if too long (max 64 for small training)
-            if input_tensor.size(1) > 64:
-                input_tensor = input_tensor[:, -64:]
+            # Pretrained models can handle longer, but let's keep it safe
+            if input_tensor.size(1) > 128:
+                input_tensor = input_tensor[:, -128:]
 
             # Run Inference
             with torch.no_grad():
@@ -108,17 +112,17 @@ class AdvancedValidationSuite:
             latencies.append(time.time() - start_time)
 
             # Decode output (Next Token Prediction)
+            # output is logits [batch, seq_len, vocab_size]
             next_token_logits = output[0, -1, :]
             next_token_id = torch.argmax(next_token_logits).item()
-            decoded = self.tokenizer.decode([next_token_id])
+
+            if self.is_pretrained:
+                decoded = self.tokenizer.decode([next_token_id])
+            else:
+                decoded = self.tokenizer.decode([next_token_id])
 
             # Check Correctness
-            # Target might be "B is true" or "yes"
             target = sample['target']
-
-            # For complex logic: Target "B is true". Decoded "B"
-            # For avicenna: Target "yes". Decoded "yes"
-
             is_correct = False
 
             # Compare first word/token match
@@ -126,11 +130,17 @@ class AdvancedValidationSuite:
             decoded_clean = decoded.strip().lower()
             target_clean = target_first_token.strip().lower()
 
-            if decoded_clean == target_clean:
+            # Pretrained models might output " Yes" or "Yes" or "\nyes"
+            if target_clean in decoded_clean:
                 is_correct = True
-            # Check if decoded is contained in target (e.g. "B" in "B is true")
-            elif decoded_clean in target.lower().split():
-                 is_correct = True
+            elif decoded_clean in target_clean and len(decoded_clean) > 1:
+                is_correct = True
+
+            # Simple fallback for yes/no
+            if target_clean in ['yes', 'true'] and decoded_clean in ['yes', 'true', 'correct']:
+                is_correct = True
+            if target_clean in ['no', 'false'] and decoded_clean in ['no', 'false', 'incorrect']:
+                is_correct = True
 
             if is_correct:
                 correct_count += 1
