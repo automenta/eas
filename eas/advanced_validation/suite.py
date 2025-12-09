@@ -36,6 +36,9 @@ class AdvancedValidationSuite:
         self.watcher.to(self.device)
         self.watcher.attractor_memory.attractors.data = self.watcher.attractor_memory.attractors.data.to(self.device)
 
+        # Intervention Layer (None means default to model.middle_layer_idx)
+        self.intervention_layer = None
+
         # Data
         self.complex_gen = ComplexLogicGenerator()
         self.avicenna_loader = AvicennaLoader("eas/advanced_validation/data/avicenna_samples.json")
@@ -93,8 +96,10 @@ class AdvancedValidationSuite:
         """
         print(f"Warming up Watcher with {num_samples} supervised samples ({dataset_type})...")
 
+        intervention_layer = self.intervention_layer if self.intervention_layer is not None else self.model.middle_layer_idx
+
         # Disable intervention during warmup
-        self.model.remove_intervention_hook(self.model.middle_layer_idx)
+        self.model.remove_intervention_hook(intervention_layer)
 
         data = []
         if dataset_type == "synthetic":
@@ -107,7 +112,7 @@ class AdvancedValidationSuite:
         # Attach passive hook to capture activations
         def passive_hook(activations):
             return activations
-        self.model.register_intervention_hook(self.model.middle_layer_idx, passive_hook)
+        self.model.register_intervention_hook(intervention_layer, passive_hook)
 
         for sample in data:
             full_text = f"Question: {sample['text']}\nAnswer: {sample['target']}"
@@ -116,7 +121,7 @@ class AdvancedValidationSuite:
             with torch.no_grad():
                 self.model(input_tensor)
 
-            hidden = self.model.get_layer_activation(self.model.middle_layer_idx)
+            hidden = self.model.get_layer_activation(intervention_layer)
 
             if hidden is not None:
                 self.watcher.update(hidden)
@@ -137,10 +142,12 @@ class AdvancedValidationSuite:
         correct_count = 0
         latencies = []
 
+        intervention_layer = self.intervention_layer if self.intervention_layer is not None else self.model.middle_layer_idx
+
         if intervention_type in ["standard", "adversarial"]:
-            self.model.register_intervention_hook(self.model.middle_layer_idx, self.watcher.snap)
+            self.model.register_intervention_hook(intervention_layer, self.watcher.snap)
         else:
-            self.model.remove_intervention_hook(self.model.middle_layer_idx)
+            self.model.remove_intervention_hook(intervention_layer)
 
         for sample in data:
             start_time = time.time()
@@ -178,7 +185,7 @@ class AdvancedValidationSuite:
 
             if is_correct:
                 correct_count += 1
-                hidden = self.model.get_layer_activation(self.model.middle_layer_idx)
+                hidden = self.model.get_layer_activation(intervention_layer)
                 if intervention_type in ["standard", "adversarial"] and hidden is not None:
                     self.watcher.update(hidden)
 
