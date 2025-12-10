@@ -9,7 +9,7 @@ from eas.advanced_validation.suite import AdvancedValidationSuite
 # Ensure project root is in path
 sys.path.append(os.getcwd())
 
-def evaluate_model(model_name, intervention_layer=None, watcher_alpha=None, watcher_k=None, warmup_size=None):
+def evaluate_model(model_name, intervention_layer=None, watcher_alpha=None, watcher_k=None, warmup_size=None, transductive=False):
     print(f"\n{'='*60}")
     print(f"EVALUATING MODEL: {model_name}")
     print(f"{'='*60}")
@@ -25,7 +25,7 @@ def evaluate_model(model_name, intervention_layer=None, watcher_alpha=None, watc
     # We pass None for model_path because we already instantiated the model
     # Note: AdvancedValidationSuite usually loads its own model if model_path is provided.
     # Here we manually set the model.
-    suite = AdvancedValidationSuite(model_path=None)
+    suite = AdvancedValidationSuite(model_path=None, transductive=transductive)
     suite.model = model
     suite.tokenizer = model.tokenizer
     suite.is_pretrained = True
@@ -58,6 +58,9 @@ def evaluate_model(model_name, intervention_layer=None, watcher_alpha=None, watc
         print(f"Overriding warmup_size to {warmup_size}")
         suite.warmup_size = warmup_size
 
+    if transductive:
+        print("Enabling Transductive Warmup (Unsupervised Test Set Adaptation)")
+
     # Run Rigorous Multi-Trial Validation (Reduced to 3 trials for speed in multi-model context)
     stats = suite.run_multiple_trials(num_trials=3)
     return stats
@@ -69,6 +72,7 @@ def main():
     parser.add_argument("--alpha", type=float, default=None, help="Watcher alpha (intervention strength)")
     parser.add_argument("--k", type=int, default=None, help="Watcher K (number of clusters)")
     parser.add_argument("--warmup", type=int, default=None, help="Number of warmup samples")
+    parser.add_argument("--transductive", action="store_true", help="Enable unsupervised transductive warmup on test set")
     parser.add_argument("--report_file", type=str, default="VALIDATION_REPORT.md", help="Output markdown report file")
 
     args = parser.parse_args()
@@ -88,7 +92,8 @@ def main():
         intervention_layer=args.layer,
         watcher_alpha=args.alpha,
         watcher_k=args.k,
-        warmup_size=args.warmup
+        warmup_size=args.warmup,
+        transductive=args.transductive
     )
 
     if stats:

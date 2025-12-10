@@ -160,6 +160,21 @@ class EmergentWatcher(nn.Module):
         
         return hidden_states + v_diff
     
+    def adapt(self, hidden_states: torch.Tensor):
+        """
+        Unsupervised Domain Adaptation
+        Updates ONLY the whitening buffer to align the coordinate space
+        Does NOT update attractors or clustering
+        """
+        if hidden_states.numel() == 0:
+            return
+
+        # Pool activations over sequence dimension
+        pooled = hidden_states.mean(dim=1).detach()
+
+        # Update whitening buffer
+        self.whitening_buffer.update(pooled)
+
     def update(self, successful_hidden_states: torch.Tensor):
         """
         Phase 3: Attractor Evolution (Update)
