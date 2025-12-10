@@ -4,6 +4,7 @@ from eas.src.models.legacy.transformer_toy import AutoregressiveTransformer, cre
 from eas.src.watcher import EmergentWatcher
 from eas.src.models.legacy.tokenizer_toy import LogicTokenizer
 from eas.advanced_validation.datasets import AvicennaLoader, ComplexLogicGenerator
+from eas.src.datasets.bridge_dataset import BridgeDatasetGenerator
 import time
 import json
 import os
@@ -30,17 +31,27 @@ class AdvancedValidationSuite:
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.model.to(self.device)
 
-        # Initialize Watcher (default settings from README)
-        # We'll re-initialize this properly when a model is injected
-        self.watcher = EmergentWatcher(dim=512, k=10, alpha_base=0.3)
+        # Initialize Watcher defaults
+        self.default_watcher_dim = 512
+        self.default_watcher_k = 10
+        self.default_watcher_alpha = 0.3
+
+        self.watcher = EmergentWatcher(dim=self.default_watcher_dim, k=self.default_watcher_k, alpha_base=self.default_watcher_alpha)
         self.watcher.to(self.device)
         self.watcher.attractor_memory.attractors.data = self.watcher.attractor_memory.attractors.data.to(self.device)
 
         # Intervention Layer (None means default to model.middle_layer_idx)
+        # This can be overridden by the script injecting the model
+        self.default_intervention_layer = None
         self.intervention_layer = None
+
+        # Warmup configuration
+        self.warmup_size = 50
+        self.use_bridge_warmup = True # Enable bridge dataset by default for better transfer
 
         # Data
         self.complex_gen = ComplexLogicGenerator()
+        self.bridge_gen = BridgeDatasetGenerator()
         self.avicenna_loader = AvicennaLoader("eas/advanced_validation/data/avicenna_samples.json")
 
         # Metrics storage
@@ -92,7 +103,7 @@ class AdvancedValidationSuite:
     def warmup_watcher(self, num_samples=100, dataset_type="synthetic"):
         """
         Supervised Warmup for the Watcher.
-        dataset_type: 'synthetic' or 'avicenna'
+        dataset_type: 'synthetic' or 'avicenna' or 'bridge'
         """
         print(f"Warming up Watcher with {num_samples} supervised samples ({dataset_type})...")
 
@@ -104,6 +115,8 @@ class AdvancedValidationSuite:
         data = []
         if dataset_type == "synthetic":
             data = self.complex_gen.generate_dataset(size=num_samples, distractors=False)
+        elif dataset_type == "bridge":
+            data = self.bridge_gen.generate_dataset(size=num_samples)
         elif dataset_type == "avicenna":
             data = self.avicenna_warmup
             if num_samples < len(data):
@@ -211,8 +224,20 @@ class AdvancedValidationSuite:
         else:
             dim = 512 # toy default
 
-        self.watcher = EmergentWatcher(dim=dim, k=10, alpha_base=0.3)
+        # Use configured defaults
+        self.watcher = EmergentWatcher(
+            dim=dim,
+            k=self.default_watcher_k,
+            alpha_base=self.default_watcher_alpha
+        )
         self.watcher.to(self.device)
+
+        # Ensure intervention layer is set correctly (it might have been set externally)
+        if self.default_intervention_layer is not None:
+            self.intervention_layer = self.default_intervention_layer
+        else:
+            # Default to None, which run_scenario interprets as model.middle_layer_idx
+            self.intervention_layer = None
 
     def run_multiple_trials(self, num_trials=5):
         """Runs the entire suite multiple times and aggregates results"""
@@ -223,8 +248,15 @@ class AdvancedValidationSuite:
             print(f"\n--- TRIAL {trial+1}/{num_trials} ---")
             self.reset_watcher()
 
-            # Warmup Phase (Mix of Synthetic and Avicenna-Train)
-            self.warmup_watcher(num_samples=50, dataset_type="synthetic")
+            # Warmup Phase
+            if self.use_bridge_warmup:
+                 # Mix Bridge and Synthetic
+                 self.warmup_watcher(num_samples=self.warmup_size // 2, dataset_type="synthetic")
+                 self.warmup_watcher(num_samples=self.warmup_size // 2, dataset_type="bridge")
+            else:
+                 self.warmup_watcher(num_samples=self.warmup_size, dataset_type="synthetic")
+
+            # Always warm up with a bit of Avicenna if available (supervised adaption)
             self.warmup_watcher(num_samples=20, dataset_type="avicenna")
 
             res_base_syn = self.run_scenario("Baseline", "complex_synthetic", "none", 50)
