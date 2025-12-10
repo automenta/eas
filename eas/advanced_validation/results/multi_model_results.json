@@ -6,7 +6,7 @@
       "intervention": "none",
       "mean_accuracy": 0.02666666666666667,
       "std_accuracy": 0.024944382578492942,
-      "mean_latency": 0.019030946095784502,
+      "mean_latency": 0.030197420120239255,
       "trials": 3
     },
     {
@@ -15,81 +15,34 @@
       "intervention": "none",
       "mean_accuracy": 0.0,
       "std_accuracy": 0.0,
-      "mean_latency": 0.027090346371686017,
+      "mean_latency": 0.04012713608918367,
       "trials": 3
     },
     {
       "scenario": "EAS_Standard",
       "dataset": "complex_synthetic",
       "intervention": "standard",
-      "mean_accuracy": 0.19999999999999998,
+      "mean_accuracy": 0.18000000000000002,
+      "std_accuracy": 0.0565685424949238,
+      "mean_latency": 0.03222962697347005,
+      "trials": 3
+    },
+    {
+      "scenario": "EAS_Standard",
+      "dataset": "avicenna",
+      "intervention": "standard",
+      "mean_accuracy": 0.0,
+      "std_accuracy": 0.0,
+      "mean_latency": 0.042929128364280415,
+      "trials": 3
+    },
+    {
+      "scenario": "EAS_Adversarial",
+      "dataset": "complex_synthetic",
+      "intervention": "adversarial",
+      "mean_accuracy": 0.08,
       "std_accuracy": 0.0282842712474619,
-      "mean_latency": 0.02024573008219401,
-      "trials": 3
-    },
-    {
-      "scenario": "EAS_Standard",
-      "dataset": "avicenna",
-      "intervention": "standard",
-      "mean_accuracy": 0.0,
-      "std_accuracy": 0.0,
-      "mean_latency": 0.028316753881948962,
-      "trials": 3
-    },
-    {
-      "scenario": "EAS_Adversarial",
-      "dataset": "complex_synthetic",
-      "intervention": "adversarial",
-      "mean_accuracy": 0.14,
-      "std_accuracy": 0.016329931618554526,
-      "mean_latency": 0.021962025960286458,
-      "trials": 3
-    }
-  ],
-  "openai-community/gpt2": [
-    {
-      "scenario": "Baseline",
-      "dataset": "complex_synthetic",
-      "intervention": "none",
-      "mean_accuracy": 0.2866666666666667,
-      "std_accuracy": 0.02494438257849294,
-      "mean_latency": 0.06471963087717691,
-      "trials": 3
-    },
-    {
-      "scenario": "Baseline",
-      "dataset": "avicenna",
-      "intervention": "none",
-      "mean_accuracy": 0.0,
-      "std_accuracy": 0.0,
-      "mean_latency": 0.07485985314404524,
-      "trials": 3
-    },
-    {
-      "scenario": "EAS_Standard",
-      "dataset": "complex_synthetic",
-      "intervention": "standard",
-      "mean_accuracy": 0.10000000000000002,
-      "std_accuracy": 0.03265986323710905,
-      "mean_latency": 0.0631968069076538,
-      "trials": 3
-    },
-    {
-      "scenario": "EAS_Standard",
-      "dataset": "avicenna",
-      "intervention": "standard",
-      "mean_accuracy": 0.0,
-      "std_accuracy": 0.0,
-      "mean_latency": 0.07869206976007533,
-      "trials": 3
-    },
-    {
-      "scenario": "EAS_Adversarial",
-      "dataset": "complex_synthetic",
-      "intervention": "adversarial",
-      "mean_accuracy": 0.09333333333333334,
-      "std_accuracy": 0.0339934634239519,
-      "mean_latency": 0.06381208260854086,
+      "mean_latency": 0.027334475517272947,
       "trials": 3
     }
   ]
