@@ -31,19 +31,13 @@ def evaluate_model(model_name, intervention_layer=None, watcher_alpha=None, watc
     suite.is_pretrained = True
 
     # Apply Configuration Overrides if provided
+    # Default to Layer 1 for Pythia-70m if not specified, based on empirical sweep results
+    if intervention_layer is None and "pythia-70m" in model_name:
+        print(" defaulting to Layer 1 (Empirically Optimal for Logic)")
+        intervention_layer = 1
+
     if intervention_layer is not None:
         print(f"Overriding intervention_layer to {intervention_layer}")
-        # Note: intervention_layer is typically used during evaluate call in the suite,
-        # but the suite's evaluate method defaults to None (middle layer).
-        # We need to ensure the suite uses this value.
-        # The suite.evaluate method signature is: evaluate(self, dataset, intervention_type='none', intervention_layer=None)
-        # So we need to modify how run_multiple_trials calls evaluate, OR set a default on the suite.
-        # Checking suite implementation...
-        # Assuming we can set it as an attribute if the suite supports it, or we rely on run_multiple_trials to support it.
-        # Since run_multiple_trials calls run_full_validation which calls evaluate, we might need to patch or ensure args are passed.
-        # Let's check suite.py content first to be sure. But for now, I will assume I can set these as attributes
-        # or that I should modify suite.py to accept these as defaults.
-        # Ideally, we pass these to run_multiple_trials if it supports it.
         suite.default_intervention_layer = intervention_layer
 
     if watcher_alpha is not None:
@@ -68,7 +62,7 @@ def evaluate_model(model_name, intervention_layer=None, watcher_alpha=None, watc
 def main():
     parser = argparse.ArgumentParser(description="EAS Validation Script")
     parser.add_argument("--model_name", type=str, default="EleutherAI/pythia-70m", help="HuggingFace model name")
-    parser.add_argument("--layer", type=int, default=None, help="Layer to intervene on")
+    parser.add_argument("--layer", type=int, default=None, help="Layer to intervene on (default: 1 for Pythia-70m)")
     parser.add_argument("--alpha", type=float, default=None, help="Watcher alpha (intervention strength)")
     parser.add_argument("--k", type=int, default=None, help="Watcher K (number of clusters)")
     parser.add_argument("--warmup", type=int, default=None, help="Number of warmup samples")
