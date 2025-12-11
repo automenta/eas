@@ -108,14 +108,26 @@ class EmergentWatcher(nn.Module):
         self.update_count = 0
         self.snap_history = []  # Track which attractors were used for snaps
         
+    def _pool_activations(self, hidden_states: torch.Tensor) -> torch.Tensor:
+        """
+        Pools activations for analysis.
+        Uses the LAST TOKEN by default to support In-Context Learning (Few-Shot).
+        Previous behavior was mean(dim=1), which dilutes signal in few-shot prompting.
+        """
+        if hidden_states.ndim == 3:
+            # [batch, seq, dim] -> [batch, dim]
+            return hidden_states[:, -1, :]
+        return hidden_states
+
     def snap(self, hidden_states: torch.Tensor) -> torch.Tensor:
         """
         Phase 2: Adaptive Snapping (Intervention)
-        Identifies nearest logical structure and nudges activation toward it
+        Identifies nearest logical structure and nudges activation toward it.
+        Crucially, we only nudge the LAST token to avoid disrupting context copying.
         """
-        # Phase 1: Signal Preprocessing (Pooling and Whitening)
-        # Pool over sequence dimension to get sentence-level vector
-        v_raw = hidden_states.mean(dim=1)  # [batch, hidden_dim]
+        # Phase 1: Signal Preprocessing
+        # Only analyze the LAST token to decide where to snap
+        v_raw = self._pool_activations(hidden_states)  # [batch, hidden_dim]
         
         # Update whitening buffer with raw activations
         self.whitening_buffer.update(v_raw)
@@ -140,25 +152,33 @@ class EmergentWatcher(nn.Module):
         closest_att = self.attractor_memory.attractors[best_indices]  # [batch, hidden_dim]
         
         # Compute adaptive alpha (dynamic strength)
-        # If activation is already very close to an attractor, the nudge approaches zero
         alpha_dyn = self.alpha_base * (1.0 - best_scores.unsqueeze(1))
         
         # Compute the nudge vector
         delta = closest_att - v_norm
-        # Clamp the delta to prevent excessive changes (safety clamp)
         delta = torch.clamp(delta, -self.max_delta, self.max_delta)
-        
-        # Apply the nudge
-        v_snapped = v_norm + (alpha_dyn * delta)
         
         # Update intervention count
         self.intervention_count += hidden_states.size(0)
         
-        # Broadcast back to sequence length (add as residual to original hidden states)
-        # Calculate the difference to add as residual
-        v_diff = v_snapped.unsqueeze(1) - v_raw.unsqueeze(1)
+        # Construct output tensor
+        # We only modify the last token
+        output = hidden_states.clone()
+
+        # Calculate the nudge vector (alpha * delta)
+        # This vector is in the whitened space.
+        nudge_whitened = alpha_dyn * delta
+
+        # Un-whiten the nudge to apply it in raw space
+        # x_raw = x_white * sqrt(var) + mean
+        # delta_raw = delta_white * sqrt(var)
+        std_dev = torch.sqrt(self.whitening_buffer.running_var + 1e-8)
+        nudge_raw = nudge_whitened * std_dev
+
+        # Apply nudge
+        output[:, -1, :] = output[:, -1, :] + nudge_raw
         
-        return hidden_states + v_diff
+        return output
     
     def adapt(self, hidden_states: torch.Tensor):
         """
@@ -169,8 +189,8 @@ class EmergentWatcher(nn.Module):
         if hidden_states.numel() == 0:
             return
 
-        # Pool activations over sequence dimension
-        pooled = hidden_states.mean(dim=1).detach()
+        # Use new pooling strategy
+        pooled = self._pool_activations(hidden_states).detach()
 
         # Update whitening buffer
         self.whitening_buffer.update(pooled)
@@ -183,8 +203,8 @@ class EmergentWatcher(nn.Module):
         if successful_hidden_states.numel() == 0:
             return
 
-        # Pool successful activations over sequence dimension
-        successful_pooled = successful_hidden_states.mean(dim=1).detach()
+        # Use new pooling strategy
+        successful_pooled = self._pool_activations(successful_hidden_states).detach()
 
         # Store in buffer for later clustering update
         success_array = successful_pooled.cpu().numpy()

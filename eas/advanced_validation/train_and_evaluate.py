@@ -9,7 +9,7 @@ from eas.advanced_validation.suite import AdvancedValidationSuite
 # Ensure project root is in path
 sys.path.append(os.getcwd())
 
-def evaluate_model(model_name, intervention_layer=None, watcher_alpha=None, watcher_k=None, warmup_size=None, transductive=False):
+def evaluate_model(model_name, intervention_layer=None, watcher_alpha=None, watcher_k=None, warmup_size=None, transductive=False, num_shots=0):
     print(f"\n{'='*60}")
     print(f"EVALUATING MODEL: {model_name}")
     print(f"{'='*60}")
@@ -25,7 +25,7 @@ def evaluate_model(model_name, intervention_layer=None, watcher_alpha=None, watc
     # We pass None for model_path because we already instantiated the model
     # Note: AdvancedValidationSuite usually loads its own model if model_path is provided.
     # Here we manually set the model.
-    suite = AdvancedValidationSuite(model_path=None, transductive=transductive)
+    suite = AdvancedValidationSuite(model_path=None, transductive=transductive, num_shots=num_shots)
     suite.model = model
     suite.tokenizer = model.tokenizer
     suite.is_pretrained = True
@@ -55,6 +55,9 @@ def evaluate_model(model_name, intervention_layer=None, watcher_alpha=None, watc
     if transductive:
         print("Enabling Transductive Warmup (Unsupervised Test Set Adaptation)")
 
+    if num_shots > 0:
+        print(f"Enabling {num_shots}-Shot In-Context Learning")
+
     # Run Rigorous Multi-Trial Validation (Reduced to 3 trials for speed in multi-model context)
     stats = suite.run_multiple_trials(num_trials=3)
     return stats
@@ -67,18 +70,10 @@ def main():
     parser.add_argument("--k", type=int, default=None, help="Watcher K (number of clusters)")
     parser.add_argument("--warmup", type=int, default=None, help="Number of warmup samples")
     parser.add_argument("--transductive", action="store_true", help="Enable unsupervised transductive warmup on test set")
+    parser.add_argument("--shots", type=int, default=0, help="Number of few-shot examples (In-Context Learning)")
     parser.add_argument("--report_file", type=str, default="VALIDATION_REPORT.md", help="Output markdown report file")
 
     args = parser.parse_args()
-
-    # If args are provided, we might be running a single experiment.
-    # But the original script supported a list of models.
-    # To maintain backward compatibility while enabling specific runs:
-    # If model_name is explicitly passed (not just default), we run just that.
-    # Actually, the default is pythia-70m.
-
-    # Let's check if the user wants to run the default list or a specific config
-    # We will assume if arguments are provided, we run that specific configuration.
 
     all_results = {}
     stats = evaluate_model(
@@ -87,7 +82,8 @@ def main():
         watcher_alpha=args.alpha,
         watcher_k=args.k,
         warmup_size=args.warmup,
-        transductive=args.transductive
+        transductive=args.transductive,
+        num_shots=args.shots
     )
 
     if stats:
