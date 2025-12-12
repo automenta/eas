@@ -1,0 +1,218 @@
+[
+  {
+    "premise1": "unchecked imbalances in the society, will see its destabilization",
+    "premise2": "correct these imbalances requires in-depth knowledge and understanding of the energies of the mineral kingdom.",
+    "conclusion": "No conclusion",
+    "label": "no"
+  },
+  {
+    "premise1": "Chronic diseases are heart attacks and stroke, cancer such as breast and colon cancer, diabetes, epilepsy and seizures, obesity, and oral health problems.",
+    "premise2": "In populations that eat a regular high-fiber diet of more than 50 grams of fiber per dayTrusted Source, like rural South Africans, chronic diseases are very low.",
+    "conclusion": "In populations that eat a regular high-fiber diet of more than 50 grams of fiber per dayTrusted Source, like rural South Africans, heart attacks and stroke, cancer such as breast and colon cancer, diabetes, epilepsy and seizures, obesity, and oral health problems are very low.",
+    "label": "yes"
+  },
+  {
+    "premise1": "Formative assessment encourages children to enjoy learning",
+    "premise2": "An ideal learning environment uses formative assessment",
+    "conclusion": "An ideal learning environment encourages children to enjoy learning",
+    "label": "yes"
+  },
+  {
+    "premise1": "Underrepresented female labor force in some professions cannot demand their rights of closing wage gap easily.",
+    "premise2": "Job discrimination comes with underrepresented female labor force in some professions.",
+    "conclusion": "Job discrimination comes with not being able to demand rights of closing wage gap easily.",
+    "label": "yes"
+  },
+  {
+    "premise1": "damaged mentality in an individual brings serious health problems such as stomach reflexes.",
+    "premise2": "Aggression harms the mentality of person.",
+    "conclusion": "Aggression brings brings serious health problems such as stomach reflexes.",
+    "label": "yes"
+  },
+  {
+    "premise1": "ElNin?o is a regulary occurring climate pattern.",
+    "premise2": "A frequently repeated climate pattern is called El Nino.",
+    "conclusion": "No conclusion",
+    "label": "no"
+  },
+  {
+    "premise1": "Your speech creates your behavior.",
+    "premise2": "your behavior is impressed by your speech",
+    "conclusion": "No conclusion",
+    "label": "no"
+  },
+  {
+    "premise1": "Batman used electronic disruptor to malfunction enemy\u2019s motion detectors.",
+    "premise2": "Failure of motion detectors opened an access for police forces to regain the control of Miagami Island.",
+    "conclusion": "Batman opened an access for police forces to regain the control of Miagami Island.",
+    "label": "yes"
+  },
+  {
+    "premise1": "Occupational therapy can help children with coordination, focus and organizational skills.",
+    "premise2": "focused children are self-motivated",
+    "conclusion": "Occupational therapy can help children to be self-motivated",
+    "label": "yes"
+  },
+  {
+    "premise1": "When global business progress, cash-flow management becomes more comfortable.",
+    "premise2": "World Trade Organization work towards the facilitation and growth of international trade.",
+    "conclusion": "World Trade Organization work towards the more comfortable cash-flow management",
+    "label": "yes"
+  },
+  {
+    "premise1": "Fast food is also often very low in fresh fruit and vegetables.",
+    "premise2": "Foods which are often very low in fresh fruit and vegetables makes it hard for people to reach their recommended daily intake of fresh fruit at least 5 servings.",
+    "conclusion": "Fast food makes it hard for people to reach their recommended daily intake of fresh fruit at least 5 servings.",
+    "label": "yes"
+  },
+  {
+    "premise1": "Decreasing insulin resistance allows your body to transport glucose from your bloodstream to your cells more efficiently",
+    "premise2": "Intermittent fasting reduces insulin resistance",
+    "conclusion": "Intermittent fasting allows your body to transport glucose from your bloodstream to your cells more efficiently",
+    "label": "yes"
+  },
+  {
+    "premise1": "The administrator at Street Help in Windsor is changing her tune.",
+    "premise2": "Assessment of street situations can help the driver act better.",
+    "conclusion": "No conclusion",
+    "label": "no"
+  },
+  {
+    "premise1": "Since the supermarket opened, many small local shops have lost up to 50 percent of their trade.",
+    "premise2": "Bandar Abbas is the main channel of import and export trade.",
+    "conclusion": "No conclusion",
+    "label": "no"
+  },
+  {
+    "premise1": "High expenses of projects are not welcomed by companies.",
+    "premise2": "The corporates didn\u2019t welcome the project due to high cost of it.",
+    "conclusion": "No conclusion",
+    "label": "no"
+  },
+  {
+    "premise1": "Do you like red grape or all grape varieties?",
+    "premise2": "There are polyphenols in all grape types.",
+    "conclusion": "No conclusion",
+    "label": "no"
+  },
+  {
+    "premise1": "encouraging employment in the fast growing creative industries impacts overall unemployment",
+    "premise2": "Creative services are likely to become a fastgrowing sub-sector of the creative economy.",
+    "conclusion": "creative services could impact on overall unemployment",
+    "label": "yes"
+  },
+  {
+    "premise1": "Asghar Farhadi has received two Academy Awards for Best Foreign Language Film for his films A Separation and The Salesman.",
+    "premise2": "Receiving an oscar for best foreign movie honors the corresponding cinema industry.",
+    "conclusion": "Asghar Farhadi honors the corresponding cinema industry.",
+    "label": "yes"
+  },
+  {
+    "premise1": "Worldwide agriculture is the largest employer of kids for hand working.",
+    "premise2": "child labor interferes with their ability to attend regular school",
+    "conclusion": "Worldwide agriculture is the largest employer that interferes with children's ability to attend regular school",
+    "label": "yes"
+  },
+  {
+    "premise1": "In protestant reformation, criticizing the catholic was ended.",
+    "premise2": "She ended to criticize and went to the church.",
+    "conclusion": "No conclusion",
+    "label": "no"
+  },
+  {
+    "premise1": "Exam time pressure increases stress levels",
+    "premise2": "Stressing out makes digestion less efficient",
+    "conclusion": "Exam time pressure makes digestion less efficient",
+    "label": "yes"
+  },
+  {
+    "premise1": "moving to office demands money for commuting.",
+    "premise2": "Winning Barcelona demands high level of hard working.",
+    "conclusion": "No conclusion",
+    "label": "no"
+  },
+  {
+    "premise1": "Avicenna wrote famous book Al Qanun Fi Al-Tibb.",
+    "premise2": "Al Qanun Fi Al-Tibb influenced modern medicine.",
+    "conclusion": "Avicenna influenced modern medicine.",
+    "label": "yes"
+  },
+  {
+    "premise1": "You can lower your electricity bill by using less heat.",
+    "premise2": "Less heat, reduces your electricity bill",
+    "conclusion": "No conclusion",
+    "label": "no"
+  },
+  {
+    "premise1": "All discoveries make people's life easier.",
+    "premise2": "cars were one of the most important inventions during the last decades.",
+    "conclusion": "cars made people's life easier during the last decades.",
+    "label": "yes"
+  },
+  {
+    "premise1": "franchisees have the backing of an established corporation",
+    "premise2": "you will experience less financial risks when you have the support of an acknowledged organization",
+    "conclusion": "franchisees will experience less financial risks",
+    "label": "yes"
+  },
+  {
+    "premise1": "Flooding may occur as an overflow of water from water bodies",
+    "premise2": "melting the snow on mountains may result in some of that water escaping its usual boundaries.",
+    "conclusion": "Flooding may occur as an result of melting the snow on mountains",
+    "label": "yes"
+  },
+  {
+    "premise1": "When brain chemicals function in different ways, we behave differently",
+    "premise2": "Different behaviors come from different functionality of brain chemicals.",
+    "conclusion": "No conclusion",
+    "label": "no"
+  },
+  {
+    "premise1": "Working animals, include horses, mules, oxen, water buffalo, camels, llamas, alpacas, donkeys, and dogs",
+    "premise2": "Working animals,have for centuries been used to help cultivate fields, harvest crops, wrangle other animals, and transport farm products to buyers",
+    "conclusion": "horses, mules, oxen, water buffalo, camels, llamas, alpacas, donkeys, and dogs have for centuries been used to help cultivate fields, harvest crops, wrangle other animals, and transport farm products to buyers",
+    "label": "yes"
+  },
+  {
+    "premise1": "Facial expressions mean pursing your lips when inhaling and squinting your eyes to keep out smoke.",
+    "premise2": "The repetitive facial expressions you make when smoking can contribute to wrinkles.",
+    "conclusion": "The repetitive pursing lips when inhaling and squinting your eyes to keep out smoke, when smoking can contribute to wrinkles.",
+    "label": "yes"
+  },
+  {
+    "premise1": "Early Egyptians\u2019 writing system were Hieroglyph.",
+    "premise2": "Hieroglyphic scripting method is currently out-dated.",
+    "conclusion": "Early Egyptians\u2019 writing system is currently out-dated.",
+    "label": "yes"
+  },
+  {
+    "premise1": "A very large revenue is needed for marketing on national media.",
+    "premise2": "Marketing on national media can not be done without a very large revenue",
+    "conclusion": "No conclusion",
+    "label": "no"
+  },
+  {
+    "premise1": "One of the factors that leads to the cultivation of violent conduct is consuming violent and sadistic material.",
+    "premise2": "violent and abusive content can result in aggressive behaviour",
+    "conclusion": "No conclusion",
+    "label": "no"
+  },
+  {
+    "premise1": "Soldiers in the war dug the trenches all around the battlefield.",
+    "premise2": "Excavating ground to a certain depth minimizes the projectile impact of enemy\u2019s artillery.",
+    "conclusion": "Soldiers minimized the projectile impact of enemy\u2019s artillery.",
+    "label": "yes"
+  },
+  {
+    "premise1": "A low-calorie and high-protein diet are advised for dropping weight.",
+    "premise2": "For loosing weight you should use a diet which is extremely low in calories and high in protein.",
+    "conclusion": "No conclusion",
+    "label": "no"
+  },
+  {
+    "premise1": "MC1R is the gene responsible for determining hair color.",
+    "premise2": "If the MC1R gene is active, it produces eumelanin and a person will have darker skin and hair.",
+    "conclusion": "If the gene responsible for determining hair color is active, it produces eumelanin and a person will have darker skin and hair.",
+    "label": "yes"
+  }
+]
