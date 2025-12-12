@@ -5,8 +5,8 @@
 This report presents the **scientifically rigorous** validation of the Emergent Attractor Steering (EAS) framework. By introducing explicit baseline controls (David without MCRE) and upgrading to `Pythia-410m`, we have isolated the source of performance gains.
 
 **Key Findings**:
-1.  **Model Superiority**: `Pythia-410m` (Baseline) outperforms `GPT-2 Large` (774M) by **+12%** (64% vs 52%), validating that architecture/training data quality outweighs parameter count in this regime.
-2.  **MCRE Safety**: On this specific logic dataset, the Adaptive MCRE calibrated the model as "confident" (Z-score < 0.5), resulting in a **0.0% abstention rate**. This correctly reflects that the model *was* capable (64% accuracy is decent). The mechanism did not trigger false positives (unnecessary abstention).
+1.  **Model Superiority**: `Pythia-410m` (Baseline) outperforms `GPT-2 Large` (774M) by **+12%** (64% vs 52%).
+2.  **MCRE Failure**: The "David vs Goliath" strategy (Abstention) **failed to provide benefit**. The Adaptive MCRE resulted in a 0.0% abstention rate, meaning the "David" (MCRE) score was identical to the "David" (Baseline) score. The victory was purely due to the base model's capability, not the intervention.
 3.  **CoT Injection**: Forced injection successfully elicited relevant reasoning artifacts ("apple is a countable integer") that were absent in baseline generation.
 
 ## 2. Validation Results (Integrated)
@@ -23,7 +23,7 @@ This report presents the **scientifically rigorous** validation of the Emergent 
     *   **David (Control) Accuracy**: **64.0%** (+12.0% over Goliath)
     *   **David (MCRE) Accuracy**: 64.0% (No change)
     *   **Abstention Rate**: 0.0%
-*   **Scientific Conclusion**: The hypothesis "Small Model > Large Model" is supported. The hypothesis "MCRE improves accuracy" yielded a null result *for this specific dataset* because the model was sufficiently confident to answer all questions. This demonstrates the MCRE is not "trigger-happy" and respects the model's competence.
+*   **Scientific Conclusion**: The hypothesis "Small Model > Large Model" is supported. **The hypothesis "MCRE improves accuracy" is NOT supported.** The intervention had no effect. Future work must find a dataset where the model is calibrated enough to express uncertainty on incorrect answers.
 
 ### 2.2 PoC 2: Context-Aligned EAS (Steering Validity)
 
@@ -41,7 +41,7 @@ This report presents the **scientifically rigorous** validation of the Emergent 
 
 ## 3. Conclusion and Next Steps
 
-The validation suite confirms the capabilities of the upgraded architecture (`Pythia-410m`) and the validity of the EAS intervention mechanisms. While MCRE abstention was not required for this dataset, its adaptive calibration functioned correctly (low Z-scores -> no abstention).
+The validation suite confirms the capabilities of the upgraded architecture (`Pythia-410m`) and the validity of the EAS intervention mechanisms. However, **MCRE failed to demonstrate value on this dataset**.
 
 **Next Steps**:
 1.  **Stress Test MCRE**: Evaluate on a harder dataset (e.g., GSM8K) where `Pythia-410m` is expected to fail, to verify MCRE triggers abstention appropriately.
