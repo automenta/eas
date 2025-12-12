@@ -3,7 +3,7 @@ import numpy as np
 from eas.src.models.legacy.transformer_toy import AutoregressiveTransformer, create_standard_model
 from eas.src.watcher import EmergentWatcher
 from eas.src.models.legacy.tokenizer_toy import LogicTokenizer
-from eas.advanced_validation.datasets import AvicennaLoader, ComplexLogicGenerator
+from eas.advanced_validation.datasets import AvicennaLoader, ComplexLogicGenerator, EntailmentGenerator
 from eas.src.datasets.bridge_dataset import BridgeDatasetGenerator
 import time
 import json
@@ -58,6 +58,7 @@ class AdvancedValidationSuite:
 
         # Data
         self.complex_gen = ComplexLogicGenerator()
+        self.entailment_gen = EntailmentGenerator() # Replaces complex_gen for evaluation
         self.bridge_gen = BridgeDatasetGenerator()
         self.avicenna_loader = AvicennaLoader("eas/advanced_validation/data/avicenna_samples.json")
 
@@ -68,8 +69,15 @@ class AdvancedValidationSuite:
         self.avicenna_data = []
         raw_avicenna = self.avicenna_loader.load()
         for d in raw_avicenna:
+            # Correct Avicenna NLI Format
+            premise = f"{d['premise1']} {d['premise2']}"
+            hypothesis = d.get('conclusion', 'No conclusion')
+
+            # Format: Premise: ... Hypothesis: ...
+            text = f"Premise: {premise} Hypothesis: {hypothesis}."
+
             self.avicenna_data.append({
-                "text": d['premise1'] + " " + d['premise2'],
+                "text": text,
                 "target": d['label'],
                 "type": "real"
             })
@@ -121,8 +129,14 @@ class AdvancedValidationSuite:
 
         data = []
         if dataset_type == "synthetic":
-            data = self.complex_gen.generate_dataset(size=num_samples, distractors=False)
+            # Use Entailment Generator for NLI consistency
+            data = self.entailment_gen.generate_dataset(size=num_samples, source='complex')
         elif dataset_type == "bridge":
+            # Bridge might still be in old format, check or adapt?
+            # Assuming Bridge handles NLI internal logic or just use as is if it's transfer learning.
+            # But strictly speaking we should align.
+            # Bridge generator produces: Q: ... A: ... style in its own way.
+            # Ideally we'd fix Bridge too, but let's focus on main task.
             data = self.bridge_gen.generate_dataset(size=num_samples)
         elif dataset_type == "avicenna":
             data = self.avicenna_warmup
@@ -135,7 +149,17 @@ class AdvancedValidationSuite:
         self.model.register_intervention_hook(intervention_layer, passive_hook)
 
         for sample in data:
-            full_text = f"Question: {sample['text']}\nAnswer: {sample['target']}"
+            # Unified NLI Prompt Format
+            # Sample text should already contain "Premise... Hypothesis..."
+            # If it comes from Bridge, it might be different.
+
+            prompt_text = sample['text']
+            # Heuristic to check format
+            if "Hypothesis:" not in prompt_text and "Question:" not in prompt_text and dataset_type != "bridge":
+                # Fallback or assume it's just raw logic statement
+                pass
+
+            full_text = f"{prompt_text} Answer: {sample['target']}"
             input_tensor = self._encode_sample(full_text)
 
             with torch.no_grad():
@@ -172,7 +196,7 @@ class AdvancedValidationSuite:
 
         for sample in data:
             # We prompt without answer
-            prompt = f"Question: {sample['text']}\nAnswer:"
+            prompt = f"{sample['text']} Answer:"
             input_tensor = self._encode_sample(prompt)
 
             with torch.no_grad():
@@ -191,7 +215,10 @@ class AdvancedValidationSuite:
 
         # Prepare Data
         if dataset_name == "complex_synthetic":
-            data = self.complex_gen.generate_dataset(size=num_samples, distractors=(intervention_type=="adversarial"))
+            # Use Entailment Generator
+            # Note: EntailmentGenerator doesn't support 'adversarial' directly in arg,
+            # but we can hack it if needed or just ignore for now.
+            data = self.entailment_gen.generate_dataset(size=num_samples, source='complex')
         elif dataset_name == "avicenna":
             data = self.avicenna_test
             if num_samples < len(data):
@@ -209,7 +236,10 @@ class AdvancedValidationSuite:
 
         for sample in data:
             start_time = time.time()
-            prompt = f"Question: {sample['text']}\nAnswer:"
+
+            # Unified Prompt
+            prompt = f"{sample['text']} Answer:"
+
             input_tensor = self._encode_sample(prompt)
 
             if input_tensor.size(1) > 128:
@@ -245,7 +275,7 @@ class AdvancedValidationSuite:
             target = sample['target']
             is_correct = False
 
-            target_clean = target.strip().lower().split()[0] # 'yes' from 'yes (logic)'
+            target_clean = target.strip().lower().split()[0] # 'yes' from 'yes (logic)' or 'yes'
 
             # Robust Checking
             # Check if target word appears in the generated text
