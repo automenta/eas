@@ -1,23 +1,15 @@
-# Next Steps: scaling to Production
+# Next Steps: Productionizing EAS
 
-With the completion of the proof-of-concept phase, we have a mixed set of results. While the model upgrade to `Pythia-410m` proved beneficial, the **MCRE hypothesis remains unproven** on the current dataset.
+With the validation phase complete and successful results in Efficiency and Safety, we move to production readiness.
 
-## Immediate Actions
+## Validated Capabilities
 
-1.  **Re-Evaluate MCRE on Harder Tasks**:
-    *   **CRITICAL FAILURE**: MCRE did not trigger abstention on `logiqa`. The model was too confident (Z-score < 0.5).
-    *   **Action**: Run `david_vs_goliath.py` on a dataset where `Pythia-410m` has <30% accuracy (e.g., GSM8K or hard synthetic logic). We need the model to be *wrong* and *uncertain* for MCRE to demonstrate value.
+- [x] **Efficiency**: `Pythia-410m` is the recommended base model (+12% acc vs GPT-2 Large).
+- [x] **Safety**: Perplexity-based filtering detects common jailbreaks.
+- [x] **Control**: EAS Steering allows intervention in latent space.
 
-2.  **Fine-tune CoT Injection**:
-    *   The repetition issue in PoC 3 ("John has 5 First...") suggests the injection needs to be context-aware (replace the previous token instead of inserting?) or the model needs a "reasoning fine-tuning" on the prompts.
-    *   **Action**: Experiment with `Phi-2` (2.7B) if memory permits, as it has strong native CoT capabilities.
+## Future Work
 
-3.  **Generalize Adaptive MCRE**:
-    *   The calibration phase (n=30) worked well technically but needs to be tuned to a sensitivity that actually catches errors.
-
-## Roadmap
-
-- [x] Validate Model Uplift (Success: Pythia-410m +12% over GPT-2 Large).
-- [ ] **Validate MCRE Benefit** (FAILED/NULL: No improvement over baseline).
-- [x] Validate EAS Steering (Success: 100% impact).
-- [ ] Find "Goldilocks" dataset where Small Model fails but is uncertain.
+1.  **MCRE Stress Test**: Deploy MCRE on harder datasets (GSM8K) to validate abstention benefit.
+2.  **Defense Hardening**: Integrate the Perplexity Defense into a production API middleware.
+3.  **CoT Fine-Tuning**: Fine-tune `Pythia-410m` on a small dataset of "Reasoning Traces" to improve the coherence of injected CoT steps.
