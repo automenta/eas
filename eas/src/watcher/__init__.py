@@ -43,6 +43,13 @@ class WhiteningBuffer:
         """Apply whitening transformation"""
         return (x - self.running_mean) / torch.sqrt(self.running_var + 1e-8)
 
+    def unwhiten_grad(self, grad_norm: torch.Tensor) -> torch.Tensor:
+        """
+        Convert a gradient/delta from whitened space back to raw space.
+        delta_raw = delta_norm * std
+        """
+        return grad_norm * torch.sqrt(self.running_var + 1e-8)
+
 
 class AttractorMemory(nn.Module):
     """Attractor Memory storing K centroids in R^(K×D)"""
@@ -87,7 +94,7 @@ class ClusteringEngine:
 class EmergentWatcher(nn.Module):
     """The Emergent Watcher module that manages attractors and performs interventions"""
     def __init__(self, dim: int, k: int = 10, alpha_base: float = 0.3, max_delta: float = 0.5, 
-                 update_frequency: int = 5):
+                 update_frequency: int = 5, use_whitening: bool = True):
         super().__init__()
         
         self.dim = dim
@@ -95,6 +102,7 @@ class EmergentWatcher(nn.Module):
         self.alpha_base = alpha_base
         self.max_delta = max_delta
         self.update_frequency = update_frequency
+        self.use_whitening = use_whitening
         
         # Components
         self.attractor_memory = AttractorMemory(dim, k)
@@ -120,15 +128,22 @@ class EmergentWatcher(nn.Module):
         # Update whitening buffer with raw activations
         self.whitening_buffer.update(v_raw)
         
-        # Apply whitening normalization
-        v_norm = self.whitening_buffer.whiten(v_raw)
+        # Apply whitening normalization if enabled
+        if self.use_whitening:
+            v_norm = self.whitening_buffer.whiten(v_raw)
+        else:
+            v_norm = v_raw
         
         # Ensure attractors are normalized
         self.attractor_memory.normalize_attractors()
         attractors_norm = F.normalize(self.attractor_memory.attractors, p=2, dim=1)
 
         # Compute cosine similarity between normalized activations and attractors
-        cosine_similarities = torch.mm(v_norm, attractors_norm.t())  # [batch, k]
+        # Note: If v_norm is raw (no whitening), it might not be unit length,
+        # so we should normalize it for cosine sim calculation.
+        v_norm_unit = F.normalize(v_norm, p=2, dim=1)
+
+        cosine_similarities = torch.mm(v_norm_unit, attractors_norm.t())  # [batch, k]
 
         # Find best matching attractor for each sample in the batch
         best_scores, best_indices = torch.max(cosine_similarities, dim=1)
@@ -143,28 +158,69 @@ class EmergentWatcher(nn.Module):
         # If activation is already very close to an attractor, the nudge approaches zero
         alpha_dyn = self.alpha_base * (1.0 - best_scores.unsqueeze(1))
         
-        # Compute the nudge vector
-        delta = closest_att - v_norm
+        # Compute the nudge vector (in norm space)
+        # If use_whitening is True, v_norm is whitened.
+        # If use_whitening is False, v_norm is raw.
+        # Ideally, we want delta = closest_att - v_norm.
+        # But for cosine sim, we usually work on the unit sphere.
+        # Let's assume attractors are directions.
+        # "Snapping" usually means pulling towards the centroid.
+        # If we use v_norm (which preserves magnitude in whitened space, or raw magnitude in raw space),
+        # and attractors are normalized (magnitude 1).
+        # We probably want to pull the DIRECTION of v_norm towards closest_att.
+
+        # Current implementation logic:
+        # delta = closest_att - v_norm
+        # This pulls v_norm towards the point on the unit sphere defined by closest_att.
+        # This implicitly changes the magnitude of v_norm towards 1.
+        # For Whitened space, magnitude ~ sqrt(dim) ?? No, whiten -> var=1. Norm of vector ~ sqrt(dim).
+        # Attractors are norm 1.
+        # So v_norm (magnitude ~sqrt(dim)) - attractor (magnitude 1) is dominated by v_norm.
+        # This effectively shrinks the vector!
+
+        # FIX: We should probably pull v_norm towards (closest_att * |v_norm|).
+        # i.e. preserve magnitude, change direction.
+        # OR, simpler: just calculate the delta and scale it.
+
+        # Let's stick to the previous logic but fix the Un-Whitening.
+        # Previous logic: delta = closest_att - v_norm.
+        # This was problematic as identified.
+
+        # Improved Logic:
+        # We want to add a vector 'd' such that CosSim(v+d, A) > CosSim(v, A).
+        # Simple gradient of CosSim?
+        # Or just interpolate: target = v_norm_unit * (1-alpha) + closest_att * alpha.
+        # Then restore magnitude.
+
+        # Let's keep it relatively simple to avoid changing too many variables:
+        # We define the target direction as the attractor.
+        # We want to step towards it.
+
+        delta = closest_att - v_norm_unit # Directional difference on sphere
+
         # Clamp the delta to prevent excessive changes (safety clamp)
         delta = torch.clamp(delta, -self.max_delta, self.max_delta)
         
-        # Apply the nudge
-        v_snapped = v_norm + (alpha_dyn * delta)
+        # Apply the nudge in NORM space
+        steering_norm = alpha_dyn * delta
         
         # Update intervention count
         self.intervention_count += hidden_states.size(0)
         
-        # Broadcast back to sequence length (add as residual to original hidden states)
-        # Calculate the difference to add as residual
-        v_diff = v_snapped.unsqueeze(1) - v_raw.unsqueeze(1)
-        
-        return hidden_states + v_diff
+        # Convert steering vector back to Raw space
+        if self.use_whitening:
+             steering_raw = self.whitening_buffer.unwhiten_grad(steering_norm)
+        else:
+             steering_raw = steering_norm
+
+        # Broadcast back to sequence length and add
+        # We add the steering vector to the original hidden states
+        return hidden_states + steering_raw.unsqueeze(1)
     
     def adapt(self, hidden_states: torch.Tensor):
         """
         Unsupervised Domain Adaptation
         Updates ONLY the whitening buffer to align the coordinate space
-        Does NOT update attractors or clustering
         """
         if hidden_states.numel() == 0:
             return
@@ -186,30 +242,34 @@ class EmergentWatcher(nn.Module):
         # Pool successful activations over sequence dimension
         successful_pooled = successful_hidden_states.mean(dim=1).detach()
 
+        # Update whitening buffer with successful activations (important!)
+        self.whitening_buffer.update(successful_pooled)
+
+        # PREPARE DATA FOR CLUSTERING
+        # If whitening is enabled, we must cluster in WHITENED space.
+        if self.use_whitening:
+            data_for_clustering = self.whitening_buffer.whiten(successful_pooled)
+        else:
+            data_for_clustering = successful_pooled
+
         # Store in buffer for later clustering update
-        success_array = successful_pooled.cpu().numpy()
+        success_array = data_for_clustering.cpu().numpy()
         if success_array.ndim == 1:
             success_array = success_array.reshape(1, -1)  # Reshape single sample
 
         self.successful_activations.extend(success_array)
 
-        # Update whitening buffer with successful activations
-        self.whitening_buffer.update(successful_pooled)
-
         # Perform clustering update if we have enough samples
         if len(self.successful_activations) >= self.update_frequency:
             # Convert to numpy array for sklearn
-            # Only use up to update_frequency samples to avoid clustering issues
             samples_to_process = min(self.update_frequency, len(self.successful_activations))
             success_array = np.array(self.successful_activations[:samples_to_process])
 
             # Make sure we have at least as many samples as clusters
             if success_array.shape[0] >= self.k:
-                # Update clustering with successful activations
+                # Update clustering
                 self.clustering_engine.partial_fit(success_array)
 
-                # Update attractors based on cluster centers (this is a simplified approach)
-                # In a more sophisticated implementation, we'd use the cluster centers directly
                 try:
                     cluster_centers = self.clustering_engine.kmeans.cluster_centers_
                     if cluster_centers.shape[0] == self.k:
@@ -221,7 +281,6 @@ class EmergentWatcher(nn.Module):
                         # Normalize attractors
                         self.attractor_memory.normalize_attractors()
                 except:
-                    # If clustering fails, just continue without updating attractors
                     pass
 
             # Remove processed activations from buffer
@@ -233,7 +292,6 @@ class EmergentWatcher(nn.Module):
         if len(self.snap_history) < 2:
             return 0.0
             
-        # Calculate entropy of attractor usage (0 = all same attractor, high = evenly distributed)
         unique, counts = np.unique(self.snap_history, return_counts=True)
         probs = counts / len(self.snap_history)
         entropy = -np.sum(probs * np.log2(probs + 1e-8))
