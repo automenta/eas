@@ -12,9 +12,10 @@ import re
 import random
 
 class AdvancedValidationSuite:
-    def __init__(self, model_path=None, results_dir="eas/advanced_validation/results", transductive=False):
+    def __init__(self, model_path=None, results_dir="eas/advanced_validation/results", transductive=False, use_whitening=True):
         self.results_dir = results_dir
         self.transductive = transductive
+        self.use_whitening = use_whitening
         os.makedirs(results_dir, exist_ok=True)
 
         # Defaults (will be overwritten by injection if using pretrained)
@@ -37,7 +38,12 @@ class AdvancedValidationSuite:
         self.default_watcher_k = 10
         self.default_watcher_alpha = 0.3
 
-        self.watcher = EmergentWatcher(dim=self.default_watcher_dim, k=self.default_watcher_k, alpha_base=self.default_watcher_alpha)
+        self.watcher = EmergentWatcher(
+            dim=self.default_watcher_dim,
+            k=self.default_watcher_k,
+            alpha_base=self.default_watcher_alpha,
+            use_whitening=self.use_whitening
+        )
         self.watcher.to(self.device)
         self.watcher.attractor_memory.attractors.data = self.watcher.attractor_memory.attractors.data.to(self.device)
 
@@ -284,7 +290,8 @@ class AdvancedValidationSuite:
         self.watcher = EmergentWatcher(
             dim=dim,
             k=self.default_watcher_k,
-            alpha_base=self.default_watcher_alpha
+            alpha_base=self.default_watcher_alpha,
+            use_whitening=self.use_whitening
         )
         self.watcher.to(self.device)
 
@@ -298,6 +305,11 @@ class AdvancedValidationSuite:
     def run_multiple_trials(self, num_trials=5):
         """Runs the entire suite multiple times and aggregates results"""
         print(f"Starting {num_trials}-Trial Robustness Validation...")
+        if self.use_whitening:
+             print("Mode: STANDARD EAS (With Whitening)")
+        else:
+             print("Mode: RAW EAS (No Whitening)")
+
         aggregated_results = {}
 
         for trial in range(num_trials):
@@ -325,6 +337,7 @@ class AdvancedValidationSuite:
             res_eas_syn = self.run_scenario("EAS_Standard", "complex_synthetic", "standard", 50)
             res_eas_avi = self.run_scenario("EAS_Standard", "avicenna", "standard", 20)
 
+            # Adversarial skipped for brevity if needed, but keeping it
             res_adv_syn = self.run_scenario("EAS_Adversarial", "complex_synthetic", "adversarial", 50)
 
             # Aggregate
