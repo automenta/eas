@@ -1,0 +1,35 @@
+<!-- reasoning_trace.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Reasoning Trace Visualizer</title>
+    <style>
+        body { font-family: system-ui; max-width: 800px; margin: 50px auto; }
+        .step { padding: 15px; margin: 10px 0; border-radius: 8px; }
+        .premise { background: #e3f2fd; border-left: 4px solid #2196f3; }
+        .conclusion { background: #e8f5e9; border-left: 4px solid #4caf50; }
+        .warning { background: #ffebee; border-left: 4px solid #f44336; }
+        textarea { width: 100%; height: 100px; }
+        button { padding: 10px 20px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h1>🧠 Reasoning Trace</h1>
+    <textarea id="input">All mammals are warm-blooded. Whales are mammals. Therefore, whales are warm-blooded.</textarea>
+    <button onclick="analyze()">Analyze</button>
+    <div id="output"></div>
+    <script>
+        function analyze() {
+            const text = document.getElementById('input').value;
+            const sentences = text.split(/[.!?]+/).filter(s => s.trim());
+            let html = '';
+            sentences.forEach((s, i) => {
+                const lower = s.toLowerCase();
+                const type = lower.includes('therefore') ? 'conclusion' : 'premise';
+                html += `<div class="step ${type}"><b>Step ${i+1}</b>: ${s.trim()}</div>`;
+            });
+            document.getElementById('output').innerHTML = html;
+        }
+    </script>
+</body>
+</html>
