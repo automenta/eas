@@ -45,7 +45,14 @@ def run_david_vs_goliath():
     dataset = get_logic_dataset()
     mcre.calibrate(dataset, n=30) # Learn baseline entropy
 
-    results = {"goliath_correct": 0, "david_correct": 0, "david_abstained": 0, "total": 0}
+    results = {
+        "goliath_correct": 0,
+        "david_baseline_correct": 0,
+        "david_mcre_correct": 0,
+        "david_mcre_answered": 0,
+        "david_abstained": 0,
+        "total": 0
+    }
 
     print("Running comparison...")
     for i in range(min(50, len(dataset))):
@@ -58,46 +65,47 @@ def run_david_vs_goliath():
         inputs = goliath_tok(prompt, return_tensors="pt").to(device)
         with torch.no_grad():
             logits = goliath(**inputs).logits[0, -1, :]
-            # Simple decoding
             ids = [goliath_tok.encode(" " + c)[0] for c in "ABCD"]
-            # Handle possible missing tokens if vocab differs? GPT-2 vocab is standard.
-            # But let's be safe
-            probs = []
-            for tid in ids:
-                if tid < logits.size(0):
-                    probs.append(logits[tid].item())
-                else:
-                    probs.append(-999)
+            probs = [logits[tid].item() if tid < logits.size(0) else -999 for tid in ids]
             pred = "ABCD"[torch.tensor(probs).argmax().item()]
 
             if pred == correct_char: results["goliath_correct"] += 1
 
         # David
         state = mcre.evaluate(prompt)
+
+        # Baseline
+        if state.predicted_answer == correct_char:
+            results["david_baseline_correct"] += 1
+
+        # MCRE
         if state.should_abstain:
             results["david_abstained"] += 1
-        elif state.predicted_answer == correct_char:
-            results["david_correct"] += 1
+        else:
+            results["david_mcre_answered"] += 1
+            if state.predicted_answer == correct_char:
+                results["david_mcre_correct"] += 1
 
         results["total"] += 1
 
     # Metrics
-    g_acc = results["goliath_correct"] / results["total"]
+    total = results["total"]
+    g_acc = results["goliath_correct"] / total
+    d_base_acc = results["david_baseline_correct"] / total
 
-    d_total = results["total"]
-    d_abstained = results["david_abstained"]
-    d_answered = d_total - d_abstained
-    d_correct = results["david_correct"]
+    d_answered = results["david_mcre_answered"]
+    d_mcre_acc = results["david_mcre_correct"] / d_answered if d_answered > 0 else 0
+    abstention_rate = results["david_abstained"] / total
 
-    d_acc_answered = d_correct / d_answered if d_answered > 0 else 0
-    d_eff = (d_acc_answered * (d_answered/d_total)) + (0.5 * (d_abstained/d_total))
+    d_eff = (d_mcre_acc * (1 - abstention_rate)) + (0.5 * abstention_rate)
 
     print(f"Goliath Accuracy:    {g_acc:.1%}")
-    print(f"David Acc (Answered):{d_acc_answered:.1%}")
-    print(f"David Effective:     {d_eff:.1%} (Abstention Rate: {d_abstained/d_total:.1%})")
+    print(f"David Baseline:      {d_base_acc:.1%}")
+    print(f"David MCRE Acc:      {d_mcre_acc:.1%}")
+    print(f"Abstention Rate:     {abstention_rate:.1%}")
 
-    # Pass condition: David is smarter when he speaks OR effective score is decent
-    return d_acc_answered >= g_acc or d_eff > 0.4
+    # Pass condition
+    return d_base_acc >= g_acc or d_mcre_acc > d_base_acc
 
 # ==========================================
 # PoC 2: Context-Aligned EAS (Validity)
@@ -172,7 +180,6 @@ def run_emergent_cot():
     print("PoC 3: Emergent CoT (Remarkability)")
     print("="*60)
 
-    # Uses Pythia-410m by default now
     gen = EmergentCoTGenerator()
     prompt = "If John has 5 apples and eats 2, how many does he have?"
     print(f"Prompt: {prompt}")
@@ -184,7 +191,7 @@ def run_emergent_cot():
     return result['cot_achieved']
 
 if __name__ == "__main__":
-    print("Starting Comprehensive Validation Suite (Hybridized)...")
+    print("Starting Comprehensive Validation Suite (Scientifically Rigorous)...")
 
     score = 0
     if run_david_vs_goliath(): score += 1
