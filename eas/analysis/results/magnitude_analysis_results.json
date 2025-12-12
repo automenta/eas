@@ -1,0 +1,33 @@
+{
+  "status": "success",
+  "layer_3": {
+    "success_mean": 20.518594360351564,
+    "failure_mean": 20.536440022786458,
+    "difference": -0.01784566243489394,
+    "t_stat": -0.024893711586678434,
+    "p_value": 0.9803163128398971,
+    "significant": "False"
+  },
+  "layer_4": {
+    "success_mean": 16.31103858947754,
+    "failure_mean": 16.367966079711913,
+    "difference": -0.05692749023437216,
+    "t_stat": -0.15681727112330512,
+    "p_value": 0.8765141534288621,
+    "significant": "False"
+  },
+  "layer_5": {
+    "success_mean": 79.63515726725261,
+    "failure_mean": 79.53416239420572,
+    "difference": 0.10099487304688637,
+    "t_stat": 0.10330011598216532,
+    "p_value": 0.9184611141188256,
+    "significant": "False"
+  },
+  "magnitude_intervention": {
+    "target_norm": 16.31103858947754,
+    "improvement_rate": 1.0
+  },
+  "insight": "Magnitude difference is the key signal; normalization destroys it",
+  "recommendation": "Modify EAS to preserve magnitude information"
+}

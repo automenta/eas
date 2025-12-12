@@ -1,0 +1,130 @@
+{
+  "status": "success",
+  "grammar": {
+    "layer_results": {
+      "0": {
+        "cosine_similarity": 0.9968147300784728,
+        "euclidean_distance": 0.48505038022994995,
+        "norm_t_stat": -0.27230108627391514,
+        "norm_p_value": 0.7922866053059348
+      },
+      "1": {
+        "cosine_similarity": 0.997927020706194,
+        "euclidean_distance": 0.7431185245513916,
+        "norm_t_stat": -0.36843696741514564,
+        "norm_p_value": 0.7221063224779424
+      },
+      "2": {
+        "cosine_similarity": 0.9998213447254928,
+        "euclidean_distance": 0.9188588857650757,
+        "norm_t_stat": 0.020402607426994963,
+        "norm_p_value": 0.9842218948365196
+      },
+      "3": {
+        "cosine_similarity": 0.9998367265729114,
+        "euclidean_distance": 0.8784422874450684,
+        "norm_t_stat": -0.03263074922897047,
+        "norm_p_value": 0.9747684796504792
+      },
+      "4": {
+        "cosine_similarity": 0.9992279934555987,
+        "euclidean_distance": 1.2141581773757935,
+        "norm_t_stat": -0.2978457954044176,
+        "norm_p_value": 0.7734093105513062
+      },
+      "5": {
+        "cosine_similarity": 0.999799648081999,
+        "euclidean_distance": 1.5336414575576782,
+        "norm_t_stat": 0.12461873389507024,
+        "norm_p_value": 0.9038998620880556
+      }
+    },
+    "best_layer": 0
+  },
+  "semantic": {
+    "layer_results": {
+      "0": {
+        "cosine_similarity": 0.9954177724847063,
+        "euclidean_distance": 0.6304103136062622,
+        "norm_t_stat": -0.4985570288232943,
+        "norm_p_value": 0.6315081368839626
+      },
+      "1": {
+        "cosine_similarity": 0.9981075253943621,
+        "euclidean_distance": 0.7300739288330078,
+        "norm_t_stat": -0.030952151763657947,
+        "norm_p_value": 0.976065965666572
+      },
+      "2": {
+        "cosine_similarity": 0.9998949546989978,
+        "euclidean_distance": 0.7323160171508789,
+        "norm_t_stat": -0.0413360822011961,
+        "norm_p_value": 0.9680409935335461
+      },
+      "3": {
+        "cosine_similarity": 0.9998701914313111,
+        "euclidean_distance": 0.7954925894737244,
+        "norm_t_stat": -0.011323737061004015,
+        "norm_p_value": 0.9912424544831347
+      },
+      "4": {
+        "cosine_similarity": 0.9994152731029426,
+        "euclidean_distance": 1.0502513647079468,
+        "norm_t_stat": -0.06882954316471593,
+        "norm_p_value": 0.9468146055396042
+      },
+      "5": {
+        "cosine_similarity": 0.9998386125520787,
+        "euclidean_distance": 1.7511123418807983,
+        "norm_t_stat": 0.36646149056736266,
+        "norm_p_value": 0.7235233110026307
+      }
+    },
+    "best_layer": 0
+  },
+  "arithmetic": {
+    "layer_results": {
+      "0": {
+        "cosine_similarity": 0.9990452893320363,
+        "euclidean_distance": 0.28404700756073,
+        "norm_t_stat": -0.01198520345400143,
+        "norm_p_value": 0.9907309167644076
+      },
+      "1": {
+        "cosine_similarity": 0.9992636255351867,
+        "euclidean_distance": 0.3342910706996918,
+        "norm_t_stat": -0.024093322120732973,
+        "norm_p_value": 0.9813682997291384
+      },
+      "2": {
+        "cosine_similarity": 0.9999519241722499,
+        "euclidean_distance": 0.3179400861263275,
+        "norm_t_stat": -0.022491868260364804,
+        "norm_p_value": 0.9826064829446697
+      },
+      "3": {
+        "cosine_similarity": 0.9999404918042893,
+        "euclidean_distance": 0.350792795419693,
+        "norm_t_stat": -0.06654609306038999,
+        "norm_p_value": 0.9485760767825542
+      },
+      "4": {
+        "cosine_similarity": 0.9998687725298125,
+        "euclidean_distance": 0.3209603726863861,
+        "norm_t_stat": 0.06213061112599259,
+        "norm_p_value": 0.9519830586725468
+      },
+      "5": {
+        "cosine_similarity": 0.9999851452502433,
+        "euclidean_distance": 0.41863274574279785,
+        "norm_t_stat": 0.04959015983599248,
+        "norm_p_value": 0.9616647429405967
+      }
+    },
+    "best_layer": 0
+  },
+  "max_divergence": 0.004582227515293691,
+  "best_type": "semantic",
+  "best_layer": 0,
+  "verdict": "WEAK SIGNAL: Some differentiation exists"
+}

@@ -1,5 +1,15 @@
 # Master Specification: Emergent Activation Snapping (EAS)
 
+## 🎉 BREAKTHROUGH UPDATE (December 2025)
+
+We have discovered **Critical Token Divergence (CTD)** - a phenomenon where semantically critical tokens show **109-770x greater divergence** than non-critical tokens. This resolves the "small model limitation" and reveals a scale-invariant metric for reasoning quality. See [`eas/analysis/findings/FINDINGS.md`](eas/analysis/findings/FINDINGS.md) for details.
+
+| Discovery | Finding | Significance |
+|-----------|---------|--------------|
+| CTD Phenomenon | 109x divergence at critical positions | Sequence pooling was hiding the signal |
+| CTD Scaling | r=0.982 correlation with model size | Larger models amplify the signal |
+| Position-Aware EAS | New intervention targeting critical tokens | Exploits the hidden signal |
+
 ## 1. Executive Summary
 
 Emergent Activation Snapping (EAS) is a neuro-symbolic intervention framework designed to bridge the gap between distributed neural representations and crisp logical reasoning. Unlike traditional methods that rely on supervised steering vectors, explicit symbolic encoders, or extensive fine-tuning, EAS enables a frozen language model to "bootstrap" its own logical geometry at runtime.
@@ -10,7 +20,24 @@ The system employs a lightweight, unsupervised **Watcher** module that observes 
 
 **Key Findings:**
 1.  **Supervised Warmup:** To overcome the "Cold Start" problem, we implemented a Supervised Warmup phase. This successfully primed the geometric space for Pythia-70m.
-2.  **Model Sensitivity:** Validation on **Pythia-70m** showed a **+17% accuracy improvement** on synthetic logic. However, the same setup on **GPT-2** resulted in performance degradation (-18%). This indicates that the EAS mechanism (specifically layer selection and attractor formation) is highly sensitive to the underlying model architecture and requires model-specific tuning.
+2.  **Model Sensitivity:** Validation on **Pythia-70m** showed a **+17% accuracy improvement** on synthetic logic. However, the same setup on **GPT-2** resulted in performance degradation (-18%). This indicates that the EAS mechanism is highly sensitive to the underlying model architecture.
+3.  **Small Model Limitations (NEW):** Geometric analysis revealed that Pythia-70m shows **<0.5% cosine divergence** between correct and incorrect text representations across all layers. This suggests EAS requires models with sufficient representational capacity to develop reasoning-specific geometry.
+
+## Directory Structure
+
+```
+eas/
+├── src/                   # Core EAS implementation
+│   ├── watcher/           # Watcher modules (original, contrastive, self-supervised)
+│   ├── models/            # Model interfaces (PretrainedTransformer)
+│   └── datasets/          # Data generation (paired, bridge, synthetic)
+├── analysis/              # Research analysis tools
+│   ├── scripts/           # Runnable analysis scripts
+│   ├── results/           # JSON experiment outputs
+│   └── findings/          # FINDINGS.md - detailed results
+├── advanced_validation/   # Breakthrough experiment suite
+└── legacy/                # Previous validation suites (archived)
+```
 
 ## 2. System Architecture
 

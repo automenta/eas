@@ -1,0 +1,73 @@
+{
+  "status": "success",
+  "num_layers": 6,
+  "hidden_dim": 512,
+  "layer_stats": {
+    "0": {
+      "centroid_distance": 0.0418349951505661,
+      "centroid_similarity": 0.9999738719956747,
+      "success_coherence": 0.9623597439274638,
+      "failure_coherence": 0.9628370941599147,
+      "cross_similarity": 0.9623223692622489,
+      "separation_score": 2.687175071900967e-05
+    },
+    "1": {
+      "centroid_distance": 0.062245018780231476,
+      "centroid_similarity": 0.9999741024608458,
+      "success_coherence": 0.9733214838319041,
+      "failure_coherence": 0.9738443574259549,
+      "cross_similarity": 0.9732831421484718,
+      "separation_score": 2.6337824827929657e-05
+    },
+    "2": {
+      "centroid_distance": 0.14369645714759827,
+      "centroid_similarity": 0.9999920648352207,
+      "success_coherence": 0.9908544300222472,
+      "failure_coherence": 0.9908739058657744,
+      "cross_similarity": 0.9908286996186076,
+      "separation_score": 7.928594356141234e-06
+    },
+    "3": {
+      "centroid_distance": 0.24359510838985443,
+      "centroid_similarity": 0.9999621337935947,
+      "success_coherence": 0.9873517146619559,
+      "failure_coherence": 0.9873728598875294,
+      "cross_similarity": 0.9872802459733172,
+      "separation_score": 3.7969474035233133e-05
+    },
+    "4": {
+      "centroid_distance": 0.2630271315574646,
+      "centroid_similarity": 0.9999046430073827,
+      "success_coherence": 0.9717642323817277,
+      "failure_coherence": 0.9723018898448688,
+      "cross_similarity": 0.9716347786952664,
+      "separation_score": 9.714100874059872e-05
+    },
+    "5": {
+      "centroid_distance": 0.3056933283805847,
+      "centroid_similarity": 0.9999979950132565,
+      "success_coherence": 0.9977802131763654,
+      "failure_coherence": 0.9978176746992574,
+      "cross_similarity": 0.99777819154782,
+      "separation_score": 1.9895119385752083e-06
+    }
+  },
+  "best_intervention_layer": 4,
+  "worst_intervention_layer": 5,
+  "separation_profile": [
+    2.687175071900967e-05,
+    2.6337824827929657e-05,
+    7.928594356141234e-06,
+    3.7969474035233133e-05,
+    9.714100874059872e-05,
+    1.9895119385752083e-06
+  ],
+  "distance_profile": [
+    0.0418349951505661,
+    0.062245018780231476,
+    0.14369645714759827,
+    0.24359510838985443,
+    0.2630271315574646,
+    0.3056933283805847
+  ]
+}
