@@ -7,7 +7,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 class EmergentCoTGenerator:
     """Forces step-by-step reasoning without explicit CoT prompting."""
     
-    CONCLUSION_WORDS = ["therefore", "thus", "so", "hence", "answer is", "result is"]
+    CONCLUSION_WORDS = ["therefore", "thus", "so", "hence", "answer is", "result is", "consequently", "implies"]
     ELABORATION_PHRASES = [
         "First, let's consider that ",
         "We know that ",

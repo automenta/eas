@@ -82,7 +82,8 @@ def run_demo(model_name="EleutherAI/pythia-70m", num_test=100, threshold=0.6):
     model = AutoModelForCausalLM.from_pretrained(model_name).to(device).eval()
     
     mcre = MCRE(model, tokenizer, device, threshold=threshold)
-    dataset = load_dataset("lucasmccabe/logiqa", split="validation")
+    from local_dataset import get_logic_dataset
+    dataset = get_logic_dataset()
     
     print(f"📊 Testing on {num_test} examples (threshold={threshold})...")
     
