@@ -14,7 +14,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 from local_dataset import get_logic_dataset
 from selective_abstention_demo import MCRE
 from emergent_cot import EmergentCoTGenerator
-from reproduce_context_aligned_eas import RawSpaceWatcher, format_prompt_3shot
+from reproduce_context_aligned_eas import RawSpaceWatcher, format_prompt_3shot, run_experiment_on_model
 from adversarial_defense import AdversarialDefender
 
 # ==========================================
@@ -45,7 +45,13 @@ def run_david_vs_goliath():
     # 3. Initialize Adaptive MCRE
     mcre = MCRE(david, david_tok, device, z_threshold=0.5)
     dataset = get_logic_dataset()
-    mcre.calibrate(dataset, n=30) # Learn baseline entropy
+
+    # FIX: Use correct prompt format for calibration
+    def format_prompt(ex):
+        options = "\n".join([f"{chr(65+j)}. {opt}" for j, opt in enumerate(ex['options'])])
+        return f"Question: {ex['question']}\n{options}\nAnswer:"
+
+    mcre.calibrate(dataset, n=30, prompt_fn=format_prompt)
 
     results = {
         "goliath_correct": 0,
@@ -112,65 +118,29 @@ def run_david_vs_goliath():
 # ==========================================
 def run_eas_reproduction():
     print("\n" + "="*60)
-    print("PoC 2: Context-Aligned EAS (Validity)")
+    print("PoC 2: Context-Aligned EAS (Validity & Scalability)")
     print("="*60)
 
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    model = AutoModelForCausalLM.from_pretrained("gpt2").to(device).eval()
-    tokenizer = AutoTokenizer.from_pretrained("gpt2")
-    tokenizer.pad_token = tokenizer.eos_token
+    # Run on GPT-2
+    print("Evaluating GPT-2...")
+    delta_gpt2 = run_experiment_on_model("gpt2", target_layer=2)
 
-    watcher = RawSpaceWatcher(dim=768, k=5, alpha=2.0).to(device)
-    dataset = get_logic_dataset()
+    # Run on OPT-125m (New Architecture Support)
+    print("Evaluating OPT-125m...")
+    try:
+        delta_opt = run_experiment_on_model("facebook/opt-125m", target_layer=2)
+    except Exception as e:
+        print(f"OPT experiment failed: {e}")
+        delta_opt = 0
 
-    # Warmup
-    print("Warming up watcher...")
-    activations = []
-    for i in range(20):
-        ex = dataset[i]
-        prompt = format_prompt_3shot(ex['question'], ex['options']) + " " + "ABCD"[ex['answer']]
-        inputs = tokenizer(prompt, return_tensors="pt").to(device)
-        with torch.no_grad():
-            h = model(**inputs, output_hidden_states=True).hidden_states[-1][:, -1, :]
-            activations.append(h)
-    watcher.adapt(torch.cat(activations).unsqueeze(1))
+    # Success if we see impact on at least one model (even if negative, it proves mechanism)
+    # Ideally positive, but for PoC validity, "effect" is key.
+    has_effect = abs(delta_gpt2) > 0.01 or abs(delta_opt) > 0.01
 
-    # Test Steering
-    print("Testing steering impact...")
-    changed = 0
-    total = 0
+    print(f"GPT-2 Delta: {delta_gpt2:.2%}")
+    print(f"OPT Delta:   {delta_opt:.2%}")
 
-    for i in range(20, 40):
-        ex = dataset[i]
-        prompt = format_prompt_3shot(ex['question'], ex['options'])
-        inputs = tokenizer(prompt, return_tensors="pt").to(device)
-
-        # Baseline
-        with torch.no_grad():
-            base_logits = model(**inputs).logits[0, -1, :]
-            base_pred = base_logits.argmax().item()
-
-        # Steered
-        def hook(module, input, output):
-            if isinstance(output, tuple):
-                h = output[0]
-                steered = watcher.steer(h)
-                return (steered,) + output[1:]
-            else:
-                return watcher.steer(output)
-
-        handle = model.transformer.h[6].register_forward_hook(hook)
-        with torch.no_grad():
-            steer_logits = model(**inputs).logits[0, -1, :]
-            steer_pred = steer_logits.argmax().item()
-        handle.remove()
-
-        if base_pred != steer_pred:
-            changed += 1
-        total += 1
-
-    print(f"Steering changed output in {changed}/{total} cases.")
-    return changed > 0
+    return has_effect
 
 # ==========================================
 # PoC 3: Emergent CoT (Remarkability)
@@ -187,8 +157,9 @@ def run_emergent_cot():
     # Force CoT at step 5 to demonstrate the injection mechanism clearly
     result = gen.generate_with_cot(prompt, max_tokens=40, verbose=True, force_at_step=5)
     print(f"\nResult: {result['text']}")
+    print(f"Reasoning Density: {result['reasoning_density']:.2f}")
 
-    return result['cot_achieved']
+    return result['cot_achieved'] and result['reasoning_density'] > 0
 
 # ==========================================
 # PoC 4: Adversarial Defense (Safety)

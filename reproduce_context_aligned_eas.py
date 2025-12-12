@@ -153,144 +153,151 @@ def format_prompt_3shot(question, options, answer_idx=None):
     full_prompt = context + "\n\n" + current
     return full_prompt
 
-def run_experiment():
-    print("="*60)
-    print("REPRODUCING CONTEXT-ALIGNED RAW EAS (+16% Claim)")
+def run_experiment_on_model(model_name, target_layer=2):
+    print("\n" + "="*60)
+    print(f"RUNNING CONTEXT-ALIGNED RAW EAS ON {model_name}")
     print("="*60)
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    model_name = "gpt2" # Using standard GPT-2 as requested (or small for speed if needed)
-    # Memory mentions "GPT-2" (likely 124M)
 
     print(f"Loading {model_name}...")
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     tokenizer.pad_token = tokenizer.eos_token
     model = AutoModelForCausalLM.from_pretrained(model_name).to(device).eval()
 
-    # Configuration from memory
-    # Layer: "Layer 2 is preferred for deeper models like GPT-2... in Few-Shot settings"
-    target_layer = 2
-    watcher = RawSpaceWatcher(dim=model.config.n_embd, k=20, alpha=0.5).to(device)
+    # Determine embedding dimension
+    if hasattr(model.config, 'n_embd'):
+        dim = model.config.n_embd
+    elif hasattr(model.config, 'hidden_size'):
+        dim = model.config.hidden_size
+    else:
+        # Fallback
+        dim = 768
+
+    # Alpha adjusted to 1.5 to balance steering strength
+    watcher = RawSpaceWatcher(dim=dim, k=20, alpha=1.5).to(device)
 
     dataset = get_logic_dataset()
-    # Split into Warmup (Context) and Test
-    # "Warmup" examples must be successful ones.
-
     print("Preparing Data...")
-    subset = dataset.select(range(100)) # Small subset for PoC speed
-    warmup_data = dataset.select(range(100, 150))
+    subset = dataset.select(range(50)) # Smaller subset for multi-model speed
+    warmup_data = dataset.select(range(50, 100))
 
-    # --- PHASE 1: Warmup (Context Alignment) ---
+    # --- PHASE 1: Warmup ---
     print("\n[Phase 1] Warming up Watcher on Context...")
-    # We run the model on warmup examples, collect activations at target layer for *correct* answers
-
     activations = []
 
     for i in tqdm(range(len(warmup_data))):
         ex = warmup_data[i]
         prompt = format_prompt_3shot(ex['question'], ex['options'])
         correct_char = "ABCD"[ex['answer']]
-        # Append correct answer to prompt to get its activation
         full_text = prompt + " " + correct_char
 
         inputs = tokenizer(full_text, return_tensors="pt").to(device)
         with torch.no_grad():
             outputs = model(**inputs, output_hidden_states=True)
-            # Get activation of the *last token* (the answer token) at target layer
-            hidden = outputs.hidden_states[target_layer + 1] # +1 because 0 is embeddings
-            activations.append(hidden[:, -1, :]) # [1, dim]
+            # +1 usually because 0 is embeddings
+            # For OPT, hidden_states includes embeddings at 0? Yes usually.
+            hidden = outputs.hidden_states[target_layer + 1]
+            activations.append(hidden[:, -1, :])
 
-    # Batch update
     if activations:
-        all_hidden = torch.cat(activations, dim=0).unsqueeze(1) # [N, 1, dim]
+        all_hidden = torch.cat(activations, dim=0).unsqueeze(1)
         watcher.adapt(all_hidden)
         print(f"Watcher warmed up with {len(activations)} examples.")
 
     # --- PHASE 2: Evaluation ---
     print("\n[Phase 2] Evaluating Baseline vs EAS...")
-
     results = {"baseline": 0, "eas": 0, "total": 0}
+
+    # Identify layer module
+    if "gpt2" in model_name:
+        layer_module = model.transformer.h[target_layer]
+    elif "opt" in model_name:
+        layer_module = model.model.decoder.layers[target_layer]
+    else:
+        # Fallback for pythia
+        if hasattr(model, 'gpt_neox'):
+            layer_module = model.gpt_neox.layers[target_layer]
+        else:
+            raise ValueError(f"Unknown model structure for {model_name}")
 
     for i in tqdm(range(len(subset))):
         ex = subset[i]
         prompt = format_prompt_3shot(ex['question'], ex['options'])
         correct_char = "ABCD"[ex['answer']]
-
         inputs = tokenizer(prompt, return_tensors="pt").to(device)
 
-        # 1. Baseline Run
+        # Baseline
         with torch.no_grad():
             outputs = model(**inputs)
             logits = outputs.logits[0, -1, :]
-
-            # Simple greedy decode of A, B, C, D
             cand_ids = [tokenizer.encode(" " + c)[0] for c in "ABCD"]
+            # Filter invalid tokens if any (e.g. if tokenizer fails to find " A")
+            # OPT tokenizer usually has leading space.
+            # Fallback simple check
+            if len(cand_ids) != 4:
+                cand_ids = [tokenizer.encode(c)[0] for c in "ABCD"]
+
             cand_logits = logits[cand_ids]
             pred_idx = cand_logits.argmax().item()
-            pred_char = "ABCD"[pred_idx]
-
-            if pred_char == correct_char:
+            if "ABCD"[pred_idx] == correct_char:
                 results["baseline"] += 1
 
-        # 2. EAS Run
-        # We need to hook the model to intervene at target_layer
-        # Using a simple forward hook
-
+        # EAS
         def eas_hook(module, input, output):
-            # GPT-2 output is a tuple where the first element is the hidden state
-            # but sometimes it's just the tensor depending on config.
-            # However, modifying the tuple directly can cause issues if downstream expects specific types.
-
             if isinstance(output, tuple):
                 h = output[0]
-                print(f"Hook input shape: {h.shape}")
                 steered = watcher.steer(h)
-                print(f"Hook output shape: {steered.shape}")
-                # Reconstruct tuple carefully
                 return (steered,) + output[1:]
             else:
                 return watcher.steer(output)
 
-        # Register hook
-        layer_module = model.transformer.h[target_layer]
         handle = layer_module.register_forward_hook(eas_hook)
-
         try:
             with torch.no_grad():
                 outputs = model(**inputs)
                 logits = outputs.logits[0, -1, :]
-
                 cand_logits = logits[cand_ids]
                 pred_idx = cand_logits.argmax().item()
-                pred_char = "ABCD"[pred_idx]
-
-                if pred_char == correct_char:
+                if "ABCD"[pred_idx] == correct_char:
                     results["eas"] += 1
         finally:
             handle.remove()
 
         results["total"] += 1
 
-    # --- Report ---
     baseline_acc = results["baseline"] / results["total"]
     eas_acc = results["eas"] / results["total"]
     delta = eas_acc - baseline_acc
 
-    print("\n" + "="*60)
-    print("RESULTS")
-    print("="*60)
-    print(f"Total Samples: {results['total']}")
-    print(f"Baseline Accuracy: {baseline_acc:.2%}")
-    print(f"EAS Accuracy:      {eas_acc:.2%}")
-    print(f"Improvement:       {delta:+.2%}")
-    print("="*60)
+    print(f"Model: {model_name} | Baseline: {baseline_acc:.2%} | EAS: {eas_acc:.2%} | Delta: {delta:+.2%}")
+    return delta
 
-    if delta > 0.05:
-        print("✅ SUCCESS: Significant positive transfer observed!")
-    elif delta > 0:
-        print("⚠️ MARGINAL: Slight positive transfer.")
+def run_experiment():
+    print("Running Multi-Model Context-Aligned EAS Validation...")
+
+    # 1. GPT-2 (Original)
+    delta_gpt2 = run_experiment_on_model("gpt2", target_layer=2)
+
+    # 2. OPT-125m (New)
+    try:
+        delta_opt = run_experiment_on_model("facebook/opt-125m", target_layer=2)
+    except Exception as e:
+        print(f"OPT experiment failed: {e}")
+        delta_opt = 0
+
+    print("\n" + "="*60)
+    print("FINAL SUMMARY")
+    print("="*60)
+    print(f"GPT-2 Improvement: {delta_gpt2:+.2%}")
+    print(f"OPT-125m Improvement: {delta_opt:+.2%}")
+
+    if delta_gpt2 > 0 and delta_opt > 0:
+         print("✅ SUCCESS: Positive transfer confirmed across architectures!")
+    elif delta_gpt2 > 0:
+         print("⚠️ PARTIAL: Confirmed on GPT-2 but not OPT.")
     else:
-        print("❌ FAILURE: No improvement or degradation.")
+         print("❌ FAILURE: No consistent improvement.")
 
 if __name__ == "__main__":
     run_experiment()

@@ -32,7 +32,13 @@ def run_comparison(num_test=100):
     mcre = MCRE(small_model, small_tok, device, z_threshold=0.5)
 
     dataset = get_logic_dataset()
-    mcre.calibrate(dataset, n=30)
+
+    # Define prompt formatter to ensure calibration matches evaluation distribution
+    def format_prompt(ex):
+        options = "\n".join([f"{chr(65+j)}. {opt}" for j, opt in enumerate(ex['options'])])
+        return f"Question: {ex['question']}\n{options}\nAnswer:"
+
+    mcre.calibrate(dataset, n=30, prompt_fn=format_prompt)
     
     results = {
         "goliath_correct": 0,

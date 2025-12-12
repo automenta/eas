@@ -33,8 +33,16 @@ class MCRE:
         self.std_entropy = 0.5
         self.is_calibrated = False
 
-    def calibrate(self, dataset, n=50):
-        """Run on a small dataset to learn baseline entropy distribution."""
+    def calibrate(self, dataset, n=50, prompt_fn=None):
+        """
+        Run on a small dataset to learn baseline entropy distribution.
+
+        Args:
+            dataset: The dataset to calibrate on.
+            n: Number of samples to use.
+            prompt_fn: A function that takes an example (dict) and returns a prompt (str).
+                       If None, defaults to simple "Question: ...\nAnswer:" format.
+        """
         print(f"🔧 Calibrating MCRE on {n} examples...")
         entropies = []
 
@@ -43,8 +51,13 @@ class MCRE:
 
         for i in range(min(n, len(dataset))):
             ex = dataset[i]
-            # Construct a simple prompt to check entropy
-            text = f"Question: {ex['question']}\nAnswer:"
+
+            if prompt_fn:
+                text = prompt_fn(ex)
+            else:
+                # Default behavior
+                text = f"Question: {ex['question']}\nAnswer:"
+
             inputs = self.tokenizer(text, return_tensors="pt", truncation=True, max_length=512).to(self.device)
 
             with torch.no_grad():
