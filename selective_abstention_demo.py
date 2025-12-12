@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-"""selective_abstention_demo.py - Primary PoC with Entropy-Based MCRE"""
+"""selective_abstention_demo.py - Adaptive MCRE with Calibration"""
 
 import torch
+import numpy as np
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from datasets import load_dataset
 from dataclasses import dataclass
@@ -10,145 +11,109 @@ from tqdm import tqdm
 @dataclass
 class MCREState:
     uncertainty: float
+    z_score: float
     confidence: float
     should_abstain: bool
     predicted_answer: str
 
 class MCRE:
-    """Meta-Cognitive Reasoning Engine using entropy-based uncertainty."""
+    """
+    Adaptive Meta-Cognitive Reasoning Engine.
+    Uses Z-score based thresholding on entropy to adapt to different models.
+    """
     
-    def __init__(self, model, tokenizer, device="cpu", threshold=0.6):
+    def __init__(self, model, tokenizer, device="cpu", z_threshold=1.0):
         self.model = model
         self.tokenizer = tokenizer
         self.device = device
-        self.threshold = threshold  # Entropy threshold for abstention
-    
-    def get_uncertainty(self, logits: torch.Tensor) -> float:
-        """Calculate Shannon Entropy of the next-token distribution."""
+        self.z_threshold = z_threshold
+
+        # Calibration stats (default to heuristics until calibrated)
+        self.mean_entropy = 2.5
+        self.std_entropy = 0.5
+        self.is_calibrated = False
+
+    def calibrate(self, dataset, n=50):
+        """Run on a small dataset to learn baseline entropy distribution."""
+        print(f"🔧 Calibrating MCRE on {n} examples...")
+        entropies = []
+
+        model_training = self.model.training
+        self.model.eval()
+
+        for i in range(min(n, len(dataset))):
+            ex = dataset[i]
+            # Construct a simple prompt to check entropy
+            text = f"Question: {ex['question']}\nAnswer:"
+            inputs = self.tokenizer(text, return_tensors="pt", truncation=True, max_length=512).to(self.device)
+
+            with torch.no_grad():
+                outputs = self.model(**inputs)
+                logits = outputs.logits[0, -1, :]
+                e = self._calculate_entropy(logits)
+                entropies.append(e)
+
+        self.mean_entropy = np.mean(entropies)
+        self.std_entropy = np.std(entropies) + 1e-6 # Avoid div by zero
+        self.is_calibrated = True
+
+        print(f"✅ Calibration complete: µ={self.mean_entropy:.2f}, σ={self.std_entropy:.2f}")
+        self.model.train(model_training)
+
+    def _calculate_entropy(self, logits: torch.Tensor) -> float:
         probs = torch.softmax(logits, dim=-1)
         log_probs = torch.log(probs + 1e-9)
-        entropy = -torch.sum(probs * log_probs, dim=-1)
-        # Normalize: Pythia-70m entropy usually peaks around 3.0-4.0
-        normalized = torch.sigmoid(entropy - 2.5)
-        return normalized.item()
-    
+        entropy = -torch.sum(probs * log_probs, dim=-1).item()
+        return entropy
+
     def get_answer_and_confidence(self, logits: torch.Tensor) -> tuple[str, float]:
-        """Get predicted answer (A/B/C/D) and confidence from logits."""
         probs = torch.softmax(logits, dim=-1)
         
-        # Get probabilities for answer tokens
         answer_probs = {}
         for answer in "ABCD":
-            # Try both formats: " A" and "A"
+            # Handle tokenization
             tokens = [self.tokenizer.encode(f" {answer}", add_special_tokens=False),
                      self.tokenizer.encode(answer, add_special_tokens=False)]
-            token_id = tokens[0][0] if tokens[0] else tokens[1][0]
-            answer_probs[answer] = probs[token_id].item()
+            # Use the first valid token found
+            token_id = None
+            for t in tokens:
+                if t:
+                    token_id = t[0]
+                    break
+
+            if token_id is not None and token_id < logits.size(0):
+                answer_probs[answer] = probs[token_id].item()
+            else:
+                answer_probs[answer] = 0.0
         
-        best_answer = max(answer_probs, key=answer_probs.get)
+        best_answer = max(answer_probs, key=answer_probs.get) if answer_probs else "A"
         confidence = answer_probs[best_answer]
         return best_answer, confidence
     
     def evaluate(self, prompt: str) -> MCREState:
-        """Evaluate a prompt and return meta-cognitive state."""
         inputs = self.tokenizer(prompt, return_tensors="pt", 
                                truncation=True, max_length=512).to(self.device)
         
         with torch.no_grad():
             outputs = self.model(**inputs)
         
-        logits = outputs.logits[0, -1, :]  # Last token logits
+        logits = outputs.logits[0, -1, :]
+        entropy = self._calculate_entropy(logits)
+
+        # Z-Score Calculation
+        z_score = (entropy - self.mean_entropy) / self.std_entropy
         
-        uncertainty = self.get_uncertainty(logits)
         answer, answer_conf = self.get_answer_and_confidence(logits)
         
-        # Abstain if: high entropy OR low answer confidence
-        should_abstain = (uncertainty > self.threshold) or (answer_conf < 0.25)
+        # Adaptive Abstention Logic:
+        # Abstain if entropy is significantly higher than model's baseline (high Z-score)
+        # OR if direct answer confidence is very low.
+        should_abstain = (z_score > self.z_threshold) or (answer_conf < 0.2)
         
         return MCREState(
-            uncertainty=uncertainty,
-            confidence=1.0 - uncertainty,
+            uncertainty=entropy,
+            z_score=z_score,
+            confidence=answer_conf,
             should_abstain=should_abstain,
             predicted_answer=answer
         )
-
-def run_demo(model_name="EleutherAI/pythia-70m", num_test=100, threshold=0.6):
-    """Run the selective abstention demo with real model evaluation."""
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    print(f"🔧 Loading {model_name} on {device}...")
-    
-    tokenizer = AutoTokenizer.from_pretrained(model_name)
-    tokenizer.pad_token = tokenizer.eos_token
-    model = AutoModelForCausalLM.from_pretrained(model_name).to(device).eval()
-    
-    mcre = MCRE(model, tokenizer, device, threshold=threshold)
-    from local_dataset import get_logic_dataset
-    dataset = get_logic_dataset()
-    
-    print(f"📊 Testing on {num_test} examples (threshold={threshold})...")
-    
-    results = {
-        "answered_correct": 0, 
-        "answered_wrong": 0,
-        "abstained": 0
-    }
-    
-    for i in tqdm(range(min(num_test, len(dataset)))):
-        ex = dataset[i]
-        
-        # Format prompt for multiple choice
-        options = "\n".join([f"{chr(65+j)}. {opt}" for j, opt in enumerate(ex['options'])])
-        prompt = f"Question: {ex['question']}\n{options}\nAnswer:"
-        
-        state = mcre.evaluate(prompt)
-        correct_answer = "ABCD"[ex['answer']]
-        
-        if state.should_abstain:
-            results["abstained"] += 1
-        elif state.predicted_answer == correct_answer:
-            results["answered_correct"] += 1
-        else:
-            results["answered_wrong"] += 1
-    
-    # Calculate metrics
-    total = sum(results.values())
-    answered = results["answered_correct"] + results["answered_wrong"]
-    abstained = results["abstained"]
-    
-    baseline_acc = (results["answered_correct"]) / total  # If we had answered all
-    answered_acc = results["answered_correct"] / answered if answered > 0 else 0
-    abstention_rate = abstained / total
-    
-    # Effective accuracy: correct answers / total questions
-    # But abstaining is "neutral" (0.25 for 4-way MC random baseline)
-    effective_acc = (answered_acc * (1 - abstention_rate) + 0.25 * abstention_rate)
-    
-    print(f"\n{'='*60}")
-    print(f"SELECTIVE ABSTENTION RESULTS (Entropy-Based MCRE)")
-    print(f"{'='*60}")
-    print(f"Total questions:       {total}")
-    print(f"Answered:              {answered} ({1-abstention_rate:.1%})")
-    print(f"Abstained:             {abstained} ({abstention_rate:.1%})")
-    print(f"{'='*60}")
-    print(f"Baseline accuracy:     {baseline_acc:.1%} (if answered all)")
-    print(f"Accuracy on answered:  {answered_acc:.1%}")
-    print(f"Effective accuracy:    {effective_acc:.1%}")
-    print(f"{'='*60}")
-    
-    improvement = answered_acc - baseline_acc
-    if improvement > 0:
-        print(f"✅ IMPROVEMENT: +{improvement:.1%} by selective answering!")
-    else:
-        print(f"⚠️  Model may benefit from threshold tuning (current: {threshold})")
-    
-    return results
-
-if __name__ == "__main__":
-    import argparse
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--model", default="EleutherAI/pythia-70m")
-    parser.add_argument("--test", type=int, default=100)
-    parser.add_argument("--threshold", type=float, default=0.6)
-    args = parser.parse_args()
-    
-    run_demo(args.model, args.test, args.threshold)

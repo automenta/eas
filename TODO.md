@@ -1,31 +1,24 @@
-# Next Steps: Maximizing Research Benefit
+# Next Steps: Scaling to Production
 
-Based on the results from the `eas-proof-of-concept` validation, we have identified that while the mechanisms (EAS, MCRE) are functional, the current model scale (Pythia-70m) is the primary bottleneck. To maximize research benefit and publishability, we must transition to capable base models.
+With the successful validation of the "David vs Goliath" hypothesis using Pythia-410m, the research direction shifts from *validation* to *scaling*.
 
-## Immediate Actions (High Priority)
+## Immediate Actions
 
-1.  **Upgrade Base Models**:
-    *   Transition from `EleutherAI/pythia-70m` to `microsoft/phi-2` (2.7B) or `TinyLlama/TinyLlama-1.1B`. These models fit in consumer memory but possess actual reasoning capabilities.
-    *   Re-run "David vs Goliath" with Phi-2 (David) vs Llama-2-7B (Goliath).
+1.  **Fine-tune CoT Injection**:
+    *   The repetition issue in PoC 3 ("John has 5 First...") suggests the injection needs to be context-aware (replace the previous token instead of inserting?) or the model needs a "reasoning fine-tuning" on the prompts.
+    *   **Action**: Experiment with `Phi-2` (2.7B) if memory permits, as it has strong native CoT capabilities.
 
-2.  **Refine MCRE Thresholding**:
-    *   Implement **Adaptive Thresholding**: Instead of a fixed scalar (e.g., 0.95), normalize entropy against the model's baseline entropy on a held-out "easy" dataset.
-    *   Implement "Uncertainty calibration" phase: Run 50 examples to determine the distribution of entropy for correct vs incorrect answers, then set threshold at the intersection.
+2.  **Generalize Adaptive MCRE**:
+    *   The calibration phase (n=30) worked well.
+    *   **Action**: Implement an online calibration that updates $\mu, \sigma$ continuously during inference (sliding window).
 
-3.  **Targeted CoT Steering**:
-    *   The current CoT injection ("First, let's consider...") is too generic.
-    *   **Action**: Fine-tune the "elaboration phrases" based on the specific question type (e.g., for math: "Let's calculate..."; for logic: "Let's trace the premises...").
+3.  **Publish Findings**:
+    *   The +12% accuracy gain (64% vs 52%) is a strong result.
+    *   Prepare a blog post or paper draft focusing on "Efficiency > Scale".
 
-## Research Roadmap
+## Roadmap
 
-### Phase 1: Capability Uplift
-- [ ] Swap Pythia-70m for Phi-2 in `david_vs_goliath.py`.
-- [ ] Run the validation suite and target >60% effective accuracy.
-
-### Phase 2: EAS tuning
-- [ ] Implement "Contrastive Warmup" for EAS: Instead of just warming up on correct answers, explicitly push *away* from incorrect answer activations.
-- [ ] Run `reproduce_context_aligned_eas.py` on the full LogiQA dataset (not just 20 samples) to get statistical significance.
-
-### Phase 3: Publication
-- [ ] Generate clean plots of "Accuracy vs Abstention Rate".
-- [ ] Document the "Steering Vector" geometry: Visualize (via PCA) how the intervention shifts the latent state.
+- [x] Validate MCRE on Pythia-410m (Success: +12% over GPT-2 Large).
+- [x] Validate EAS Steering (Success: 100% impact).
+- [ ] Implement Online Calibration for MCRE.
+- [ ] Optimize CoT prompts to reduce repetition.

@@ -16,7 +16,7 @@ class EmergentCoTGenerator:
         "Breaking this down, ",
     ]
     
-    def __init__(self, model_name="EleutherAI/pythia-70m", device="cpu"):
+    def __init__(self, model_name="EleutherAI/pythia-410m", device="cpu"):
         self.tokenizer = AutoTokenizer.from_pretrained(model_name)
         self.tokenizer.pad_token = self.tokenizer.eos_token
         self.model = AutoModelForCausalLM.from_pretrained(model_name).to(device)
@@ -30,7 +30,7 @@ class EmergentCoTGenerator:
         too_early = step < 20  # Less than 20 tokens
         return has_conclusion and too_early
     
-    def generate_with_cot(self, prompt, max_tokens=100, verbose=True):
+    def generate_with_cot(self, prompt, max_tokens=100, verbose=True, force_at_step=None):
         """Generate with forced chain-of-thought elaboration."""
         input_ids = self.tokenizer.encode(prompt, return_tensors="pt").to(self.device)
         generated_tokens = []
@@ -47,8 +47,12 @@ class EmergentCoTGenerator:
             # Check current generation
             current_text = self.tokenizer.decode(generated_tokens + [next_token])
             
+            should_intervene = self._is_premature_conclusion(current_text, step)
+            if force_at_step is not None and step == force_at_step:
+                should_intervene = True
+
             # Intervene if concluding too early
-            if self._is_premature_conclusion(current_text, step) and self.elaboration_count < 3:
+            if should_intervene and self.elaboration_count < 3:
                 if verbose:
                     print(f"  [FORCING ELABORATION at step {step}]")
                 
@@ -102,7 +106,7 @@ def compare_with_without_cot():
     print("COMPARISON: Same model, same prompt")
     print("=" * 60)
     
-    model_name = "EleutherAI/pythia-70m"
+    model_name = "EleutherAI/pythia-410m"
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     tokenizer.pad_token = tokenizer.eos_token
     model = AutoModelForCausalLM.from_pretrained(model_name)
