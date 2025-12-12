@@ -1,147 +1,151 @@
 """
-Minimal Autoregressive Transformer Implementation for EAS
-Based on the specification: 2 layers, 8 heads, 512 hidden dim
+Pre-trained Transformer Wrapper for EAS
+Wraps Hugging Face transformers to expose the EAS hook interface
 """
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-import math
+from transformers import AutoModelForCausalLM, AutoTokenizer
+from typing import Optional, Callable
 
-
-class MultiHeadAttention(nn.Module):
-    """Multi-head attention module"""
-    def __init__(self, d_model, num_heads):
+class PretrainedTransformer(nn.Module):
+    """
+    Wrapper for Hugging Face Causal LM models.
+    Exposes intervention hooks similar to the toy AutoregressiveTransformer.
+    """
+    def __init__(self, model_name: str = "EleutherAI/pythia-70m", device: str = "cpu"):
         super().__init__()
-        assert d_model % num_heads == 0
+        self.device = device
+        self.model_name = model_name
         
-        self.d_model = d_model
-        self.num_heads = num_heads
-        self.d_k = d_model // num_heads
-        
-        self.W_q = nn.Linear(d_model, d_model)
-        self.W_k = nn.Linear(d_model, d_model)
-        self.W_v = nn.Linear(d_model, d_model)
-        self.W_o = nn.Linear(d_model, d_model)
-        
-    def forward(self, x, mask=None):
-        batch_size, seq_len, d_model = x.size()
-        
-        # Linear projections
-        Q = self.W_q(x).view(batch_size, seq_len, self.num_heads, self.d_k).transpose(1, 2)
-        K = self.W_k(x).view(batch_size, seq_len, self.num_heads, self.d_k).transpose(1, 2)
-        V = self.W_v(x).view(batch_size, seq_len, self.num_heads, self.d_k).transpose(1, 2)
-        
-        # Scaled dot-product attention
-        scores = torch.matmul(Q, K.transpose(-2, -1)) / math.sqrt(self.d_k)
-        
-        if mask is not None:
-            scores.masked_fill_(mask == 0, float('-inf'))
-        
-        attention_weights = F.softmax(scores, dim=-1)
-        attention_output = torch.matmul(attention_weights, V)
-        
-        # Reshape and apply final linear transformation
-        attention_output = attention_output.transpose(1, 2).contiguous().view(
-            batch_size, seq_len, d_model
-        )
-        output = self.W_o(attention_output)
-        
-        return output, attention_weights
+        print(f"Loading pre-trained model: {model_name}...")
+        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
+        if self.tokenizer.pad_token is None:
+            self.tokenizer.pad_token = self.tokenizer.eos_token
 
+        self.model = AutoModelForCausalLM.from_pretrained(model_name)
+        self.model.to(device)
+        self.model.eval() # We usually keep the base model frozen/eval mode
 
-class PositionWiseFFN(nn.Module):
-    """Position-wise feed-forward network"""
-    def __init__(self, d_model, d_ff):
-        super().__init__()
-        self.linear1 = nn.Linear(d_model, d_ff)
-        self.linear2 = nn.Linear(d_ff, d_model)
-        self.dropout = nn.Dropout(0.1)
-        
-    def forward(self, x):
-        x = F.gelu(self.linear1(x))
-        x = self.dropout(x)
-        x = self.linear2(x)
-        return x
-
-
-class TransformerBlock(nn.Module):
-    """Single transformer block with layer normalization and residual connections"""
-    def __init__(self, d_model, num_heads, d_ff, dropout=0.1):
-        super().__init__()
-        self.attention = MultiHeadAttention(d_model, num_heads)
-        self.ffn = PositionWiseFFN(d_model, d_ff)
-        
-        self.norm1 = nn.LayerNorm(d_model)
-        self.norm2 = nn.LayerNorm(d_model)
-        self.dropout = nn.Dropout(dropout)
-        
-    def forward(self, x, mask=None):
-        # Multi-head attention with residual connection
-        attn_output, _ = self.attention(self.norm1(x), mask)
-        x = x + self.dropout(attn_output)
-        
-        # Feed-forward network with residual connection
-        ffn_output = self.ffn(self.norm2(x))
-        x = x + self.dropout(ffn_output)
-        
-        return x
-
-
-class AutoregressiveTransformer(nn.Module):
-    """Minimal Autoregressive Transformer for EAS"""
-    def __init__(self, vocab_size, d_model=512, num_layers=2, num_heads=8, max_seq_len=512):
-        super().__init__()
-
-        self.d_model = d_model
-        self.num_layers = num_layers
-        self.middle_layer_idx = num_layers // 2  # For 2 layers, this will be 1 (second layer), for 1 layer, 0
-
-        self.embedding = nn.Embedding(vocab_size, d_model)
-        self.pos_encoding = nn.Parameter(torch.zeros(1, max_seq_len, d_model))
-
-        # Create transformer blocks
-        self.layers = nn.ModuleList([
-            TransformerBlock(d_model, num_heads, d_ff=d_model*4)
-            for _ in range(num_layers)
-        ])
-
-        self.norm = nn.LayerNorm(d_model)
-        self.output_projection = nn.Linear(d_model, vocab_size)
-
-        # Initialize position encodings
-        self.pos_encoding.data = self._generate_positional_encodings(max_seq_len, d_model)
-
-        # Hook storage for layer activations
+        # Hook storage
         self.layer_activations = {}
         self.intervention_hooks = {}
+        self.hook_handles = []
 
-        # Register forward hooks for each layer
+        # Determine model structure and hidden dimension
+        self.d_model = self.model.config.hidden_size
+        self.num_layers = self.model.config.num_hidden_layers
+
+        # We target a middle layer for intervention by default.
+        # For Pythia-70m (6 layers), layer 3 is middle.
+        self.middle_layer_idx = self.num_layers // 2
+
+        self._register_hooks()
+
+    def _register_hooks(self):
+        """
+        Registers forward hooks on the transformer layers.
+        We need to identify the specific module list that contains the layers.
+        Common names: `gpt_neox.layers`, `model.layers`, `h`, `transformer.h`
+        """
+        # Attempt to find the layer list
+        if hasattr(self.model, "gpt_neox"):
+            self.layers = self.model.gpt_neox.layers
+        elif hasattr(self.model, "model") and hasattr(self.model.model, "layers"): # Llama-like
+            self.layers = self.model.model.layers
+        elif hasattr(self.model, "transformer") and hasattr(self.model.transformer, "h"): # GPT-2 like
+            self.layers = self.model.transformer.h
+        elif hasattr(self.model, "bert") and hasattr(self.model.bert, "encoder"): # BERT
+            self.layers = self.model.bert.encoder.layer
+        else:
+            # Fallback: try to find a ModuleList by inspecting
+            for name, module in self.model.named_modules():
+                if isinstance(module, nn.ModuleList) and len(module) > 0:
+                    self.layers = module
+                    break
+            else:
+                raise ValueError(f"Could not find layer list in model {self.model_name}")
+
         for i, layer in enumerate(self.layers):
-            layer.register_forward_hook(self._make_layer_hook(i))
-
-    def _generate_positional_encodings(self, max_len, d_model):
-        """Generate positional encodings as in the original transformer paper"""
-        pos_enc = torch.zeros(max_len, d_model)
-        position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
-        div_term = torch.exp(torch.arange(0, d_model, 2).float() *
-                           -(math.log(10000.0) / d_model))
-
-        pos_enc[:, 0::2] = torch.sin(position * div_term)
-        pos_enc[:, 1::2] = torch.cos(position * div_term)
-
-        return pos_enc.unsqueeze(0)
+            handle = layer.register_forward_hook(self._make_layer_hook(i))
+            self.hook_handles.append(handle)
 
     def _make_layer_hook(self, layer_idx):
         """Make a hook function to capture activations at a specific layer"""
         def hook(module, input, output):
-            # Store the output of the layer
-            # Use input for hooking before layer processing
-            self.layer_activations[layer_idx] = input[0].detach().clone()
-            # If we have an intervention for this layer, apply it
+            # Input to the layer is usually a tuple (hidden_states, ...)
+            # We want to intercept hidden_states.
+            hidden_states = input[0]
+
+            # Store activation (clone to be safe)
+            # We might want to store it detached if we are not backpropping,
+            # but for intervention we need to modify it in-place or return modified.
+
+            # Note: For intervention to work, we must return the modified output
+            # But here we are hooking the layer *input*.
+            # Wait, `register_forward_hook` runs *after* the forward pass of the module.
+            # If we want to modify the input to the layer, we should use `register_forward_pre_hook`.
+            # OR we can modify the output of the *previous* layer.
+
+            # The toy model used `register_forward_hook` on the layer and modified `input[0]`.
+            # But modifying `input` in a forward hook (post-forward) doesn't affect the computation of that layer
+            # because it has already happened!
+
+            # Checking toy model code:
+            # def hook(module, input, output):
+            #     self.layer_activations[layer_idx] = input[0].detach().clone()
+            #     if layer_idx in self.intervention_hooks:
+            #          return intervention_func(input[0])
+
+            # In PyTorch, if a forward hook returns a value, it replaces the *output* of that layer.
+            # But the toy model hook was using `input[0]`. This is weird.
+            # If the toy hook returns something, it replaces the OUTPUT of the layer.
+            # But the toy hook was calculating intervention based on INPUT.
+            # So `layer(x)` returns `intervention(x)`.
+            # This means the layer's actual computation is skipped/replaced by the intervention?
+            # No, the layer computation happened, `output` was produced, but then ignored because the hook returned something else.
+            # AND the replacement was `intervention(input)`.
+            # So effectively, the layer was replaced by the intervention function?
+
+            # Let's look at the toy model again.
+            # `x = layer(x, attention_mask)` in `AutoregressiveTransformer.forward`.
+            # If the hook returns `intervention(input)`, then `x` becomes that for the next layer.
+            # So the layer transformation itself is BYPASSED if the hook returns.
+            # That seems like a bug or a very specific design in the toy model.
+            # EAS description says: "Exposes a read/write hook at the middle layer (Layer 1) to allow the Watcher to intercept and modify the hidden state tensor H."
+            # "The hook captures the output of Layer 1 before it's passed to Layer 2, processes it through the Watcher intervention, then injects the modified version as input to Layer 2."
+
+            # If we hook Layer 1, and return modified activation, that becomes the input to Layer 2.
+            # So hooking the *output* of Layer 1 is the correct way.
+
+            # In the toy model:
+            # `self.layer_activations[layer_idx] = input[0].detach().clone()` -> Captures input to layer i.
+            # `return intervention_func(input[0])` -> Returns modified input as the output of layer i.
+            # This effectively makes Layer i an identity function (plus intervention) and skips the actual TransformerBlock logic for Layer i.
+            # This seems wrong if we want the layer to do its job.
+
+            # Correct approach for Pretrained Model:
+            # We want to intervene on the *output* of Layer i, which becomes the input to Layer i+1.
+            # So we look at `output` (which is a tuple, usually (hidden_states, ...)).
+
+            if isinstance(output, tuple):
+                hidden_states = output[0]
+            else:
+                hidden_states = output
+
+            # Store it
+            self.layer_activations[layer_idx] = hidden_states.detach()
+
+            # Apply intervention
             if layer_idx in self.intervention_hooks:
-                # Apply the intervention function
                 intervention_func = self.intervention_hooks[layer_idx]
-                return intervention_func(input[0])
+                modified_hidden = intervention_func(hidden_states)
+
+                # We need to return the full output tuple structure
+                if isinstance(output, tuple):
+                    return (modified_hidden,) + output[1:]
+                else:
+                    return modified_hidden
+
         return hook
 
     def register_intervention_hook(self, layer_idx, intervention_func):
@@ -157,41 +161,8 @@ class AutoregressiveTransformer(nn.Module):
         """Get the activation from a specific layer"""
         return self.layer_activations.get(layer_idx)
 
-    def set_layer_activation(self, layer_idx, new_activation):
-        """Set a new activation for a specific layer (for EAS intervention)"""
-        self.layer_activations[layer_idx] = new_activation
+    def forward(self, input_ids, attention_mask=None):
+        return self.model(input_ids, attention_mask=attention_mask).logits
 
-    def forward(self, x, attention_mask=None):
-        # Embedding and positional encoding
-        x = self.embedding(x) * math.sqrt(self.d_model)
-        x = x + self.pos_encoding[:, :x.size(1), :]
-
-        # Pass through each transformer layer
-        for i, layer in enumerate(self.layers):
-            x = layer(x, attention_mask)
-
-        # Final normalization and output projection
-        x = self.norm(x)
-        output = self.output_projection(x)
-
-        return output
-
-
-def create_small_model(vocab_size, d_model=128, num_layers=1, num_heads=4):
-    """Create a smaller model variant for rapid prototyping"""
-    return AutoregressiveTransformer(
-        vocab_size=vocab_size,
-        d_model=d_model,
-        num_layers=num_layers,
-        num_heads=num_heads
-    )
-
-
-def create_standard_model(vocab_size):
-    """Create the standard model as specified"""
-    return AutoregressiveTransformer(
-        vocab_size=vocab_size,
-        d_model=512,
-        num_layers=2,
-        num_heads=8
-    )
+    def generate(self, input_ids, max_new_tokens=10, **kwargs):
+        return self.model.generate(input_ids, max_new_tokens=max_new_tokens, **kwargs)

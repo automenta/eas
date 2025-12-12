@@ -1,98 +1,83 @@
 import torch
-import torch.nn as nn
-import torch.optim as optim
-from eas.src.models.transformer import create_standard_model
-from eas.src.models.tokenizer import LogicTokenizer
-from eas.advanced_validation.datasets import ComplexLogicGenerator, SemiSyntheticGenerator, EntailmentGenerator
+from eas.src.models.transformer import PretrainedTransformer
 from eas.advanced_validation.suite import AdvancedValidationSuite
-from eas.advanced_validation.analysis import run_analysis
 import os
-import random
+import sys
+import json
 
-def train_and_evaluate():
-    print("Initializing Model for In-Memory Training and Evaluation...")
+# Ensure project root is in path
+sys.path.append(os.getcwd())
 
-    # 1. Initialize Model
-    tokenizer = LogicTokenizer(vocab_size=1500)
-    model = create_standard_model(vocab_size=1500)
+def evaluate_model(model_name):
+    print(f"\n{'='*60}")
+    print(f"EVALUATING MODEL: {model_name}")
+    print(f"{'='*60}")
+
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    model.to(device)
+    try:
+        model = PretrainedTransformer(model_name=model_name, device=device)
+    except Exception as e:
+        print(f"Failed to load model {model_name}: {e}")
+        return None
 
-    # 2. Train (Fast & Furious)
-    print("Starting Mixed Curriculum Training...")
-    model.train()
-    optimizer = optim.Adam(model.parameters(), lr=1e-4)
-    criterion = nn.CrossEntropyLoss()
-
-    gen_complex = ComplexLogicGenerator()
-    gen_semi = SemiSyntheticGenerator()
-    gen_entail = EntailmentGenerator()
-
-    # We reduce steps to ensure it finishes quickly for this demo
-    max_steps = 300
-    batch_size = 32
-
-    for step in range(max_steps):
-        inputs = []
-        targets = []
-        for _ in range(batch_size):
-            r = random.random()
-            if r < 0.33:
-                s = gen_complex.generate_sample()
-                text = f"{s['text']} -> {s['target']}"
-            elif r < 0.66:
-                s = gen_semi.generate_sample()
-                text = f"{s['text']} -> {s['target']}"
-            else:
-                src = 'complex' if random.random() > 0.5 else 'semi'
-                s = gen_entail.generate_sample(source=src)
-                text = f"{s['text']} -> {s['target']}"
-
-            token_ids = tokenizer.encode(text)
-            if len(token_ids) > 64: token_ids = token_ids[:64]
-            token_ids += [0] * (64 - len(token_ids))
-            inputs.append(token_ids[:-1])
-            targets.append(token_ids[1:])
-
-        input_tensor = torch.tensor(inputs, dtype=torch.long).to(device)
-        target_tensor = torch.tensor(targets, dtype=torch.long).to(device)
-
-        optimizer.zero_grad()
-        output = model(input_tensor)
-        loss = criterion(output.view(-1, 1500), target_tensor.view(-1))
-        loss.backward()
-        optimizer.step()
-
-        if step % 50 == 0:
-            print(f"Step {step}: Loss {loss.item():.4f}")
-
-    print("Training Complete. Proceeding to Evaluation...")
-    model.eval()
-
-    # 3. Inject Model into Suite (In-Memory)
-    # We modify the suite initialization to accept a model instance directly
-    # Note: suite.py currently expects model_path or creates new.
-    # We need to hack it or modify suite.py.
-    # I will modify suite.py to accept `model_instance`.
-
-    # But wait, I can just instantiate suite and overwrite `self.model`.
+    # Inject Model into Suite
     suite = AdvancedValidationSuite(model_path=None)
-    suite.model = model # Overwrite with trained model
+    suite.model = model
+    suite.tokenizer = model.tokenizer
+    suite.is_pretrained = True
 
-    # 4. Run Scenarios
-    # Baseline
-    suite.run_scenario("Baseline", "complex_synthetic", intervention_type="none", num_samples=30)
-    suite.run_scenario("Baseline", "avicenna", intervention_type="none", num_samples=20)
+    # Run Rigorous Multi-Trial Validation (Reduced to 3 trials for speed in multi-model context)
+    stats = suite.run_multiple_trials(num_trials=3)
+    return stats
 
-    # EAS Standard
-    suite.run_scenario("EAS_Standard", "complex_synthetic", intervention_type="standard", num_samples=30)
-    suite.run_scenario("EAS_Standard", "avicenna", intervention_type="standard", num_samples=20)
+def main():
+    models_to_test = ["EleutherAI/pythia-70m", "openai-community/gpt2"]
 
-    # EAS Adversarial
-    suite.run_scenario("EAS_Adversarial", "complex_synthetic", intervention_type="adversarial", num_samples=30)
+    all_results = {}
 
-    suite.save_results()
-    run_analysis()
+    for model_name in models_to_test:
+        stats = evaluate_model(model_name)
+        if stats:
+            all_results[model_name] = stats
+
+    # Save consolidated results
+    with open("eas/advanced_validation/results/multi_model_results.json", "w") as f:
+        json.dump(all_results, f, indent=2)
+
+    # Generate Markdown Report
+    generate_markdown_report(all_results)
+
+def generate_markdown_report(all_results):
+    report = "# EAS Multi-Model Validation Report\n\n"
+
+    for model_name, stats in all_results.items():
+        report += f"## Model: {model_name}\n\n"
+        report += f"| Scenario | Dataset | Mean Acc | Std Dev | Improvement |\n"
+        report += f"|---|---|---|---|---|\n"
+
+        # Find baseline
+        baseline_map = {}
+        for s in stats:
+            if s['intervention'] == 'none':
+                baseline_map[s['dataset']] = s['mean_accuracy']
+
+        for s in stats:
+            dataset = s['dataset']
+            mean_acc = s['mean_accuracy']
+            std_acc = s['std_accuracy']
+
+            imp_str = "-"
+            if s['intervention'] != 'none':
+                base = baseline_map.get(dataset, 0)
+                diff = mean_acc - base
+                imp_str = f"**{diff:+.4f}**"
+
+            report += f"| {s['scenario']} | {dataset} | {mean_acc:.4f} | {std_acc:.4f} | {imp_str} |\n"
+        report += "\n"
+
+    with open("VALIDATION_REPORT.md", "w") as f:
+        f.write(report)
+    print("\nReport saved to VALIDATION_REPORT.md")
 
 if __name__ == "__main__":
-    train_and_evaluate()
+    main()

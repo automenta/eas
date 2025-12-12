@@ -1,30 +1,22 @@
-# EAS Advanced Validation Report
+# EAS Multi-Model Validation Report
 
-## 1. Overall Performance
-| Scenario | Dataset | Intervention | Accuracy | Latency (s) |
+## Model: EleutherAI/pythia-70m
+
+| Scenario | Dataset | Mean Acc | Std Dev | Improvement |
 |---|---|---|---|---|
-| Baseline | complex_synthetic | none | 0.0000 | 0.0032 |
-| Baseline | avicenna | none | 0.0000 | 0.0041 |
-| EAS_Standard | complex_synthetic | standard | 0.0333 | 0.0039 |
-| EAS_Standard | avicenna | standard | 0.2000 | 0.0047 |
-| EAS_Adversarial | complex_synthetic | adversarial | 0.0000 | 0.0041 |
+| Baseline | complex_synthetic | 0.0267 | 0.0249 | - |
+| Baseline | avicenna | 0.0000 | 0.0000 | - |
+| EAS_Standard | complex_synthetic | 0.2000 | 0.0283 | **+0.1733** |
+| EAS_Standard | avicenna | 0.0000 | 0.0000 | **+0.0000** |
+| EAS_Adversarial | complex_synthetic | 0.1400 | 0.0163 | **+0.1133** |
 
+## Model: openai-community/gpt2
 
-## 2. Honest Assessment of Effectiveness
-### Impact on Complex Synthetic Logic
-- Baseline Accuracy: 0.00%
-- EAS Accuracy: 3.33%
-- Improvement: +3.33%
-**Assessment:** No significant impact. The model performance is dominated by base capabilities (or lack thereof).
+| Scenario | Dataset | Mean Acc | Std Dev | Improvement |
+|---|---|---|---|---|
+| Baseline | complex_synthetic | 0.2867 | 0.0249 | - |
+| Baseline | avicenna | 0.0000 | 0.0000 | - |
+| EAS_Standard | complex_synthetic | 0.1000 | 0.0327 | **-0.1867** |
+| EAS_Standard | avicenna | 0.0000 | 0.0000 | **+0.0000** |
+| EAS_Adversarial | complex_synthetic | 0.0933 | 0.0340 | **-0.1933** |
 
-### Impact on Real-World Data (Avicenna)
-- Baseline Accuracy: 0.00%
-- EAS Accuracy: 20.00%
-- Improvement: +20.00%
-
-## 3. Robustness & Adversarial Analysis
-- Adversarial Accuracy: 0.00%
-**Observation:** Robust performance maintained (or equally poor).
-
-## 4. Addressing Homogeneity Concerns
-We observed distinct performance profiles, suggesting the validation framework successfully captured variance in model behavior.
