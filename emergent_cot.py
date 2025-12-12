@@ -15,6 +15,7 @@ class EmergentCoTGenerator:
         "Step by step: ",
         "Breaking this down, ",
     ]
+    LOGICAL_CONNECTIVES = ["because", "since", "therefore", "implies", "if", "then", "however", "but", "so", "due to", "reason"]
     
     def __init__(self, model_name="EleutherAI/pythia-410m", device="cpu"):
         self.tokenizer = AutoTokenizer.from_pretrained(model_name)
@@ -22,6 +23,14 @@ class EmergentCoTGenerator:
         self.model = AutoModelForCausalLM.from_pretrained(model_name).to(device)
         self.device = device
         self.elaboration_count = 0
+
+    def calculate_reasoning_density(self, text):
+        """Calculate the density of logical connectives in the text."""
+        words = text.lower().split()
+        if not words:
+            return 0.0
+        count = sum(1 for w in words if any(c in w for c in self.LOGICAL_CONNECTIVES))
+        return count / len(words)
     
     def _is_premature_conclusion(self, generated_text, step):
         """Check if model is concluding too early."""
@@ -35,6 +44,7 @@ class EmergentCoTGenerator:
         input_ids = self.tokenizer.encode(prompt, return_tensors="pt").to(self.device)
         generated_tokens = []
         elaboration_points = []
+        self.elaboration_count = 0 # Reset for new generation
         
         for step in range(max_tokens):
             with torch.no_grad():
@@ -75,11 +85,13 @@ class EmergentCoTGenerator:
                 break
         
         output_text = self.tokenizer.decode(generated_tokens, skip_special_tokens=True)
+        reasoning_density = self.calculate_reasoning_density(output_text)
         
         return {
             "text": output_text,
             "elaborations": len(elaboration_points),
-            "cot_achieved": len(elaboration_points) > 0
+            "cot_achieved": len(elaboration_points) > 0,
+            "reasoning_density": reasoning_density
         }
 
 def demo():
