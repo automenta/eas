@@ -15,11 +15,13 @@ class MCREState:
     confidence: float
     should_abstain: bool
     predicted_answer: str
+    valid_mass: float # Total probability mass of A,B,C,D
 
 class MCRE:
     """
     Adaptive Meta-Cognitive Reasoning Engine.
     Uses Z-score based thresholding on entropy to adapt to different models.
+    Now uses Restricted Softmax (A/B/C/D) for "Smarter" evaluation.
     """
     
     def __init__(self, model, tokenizer, device="cpu", z_threshold=1.0):
@@ -28,9 +30,25 @@ class MCRE:
         self.device = device
         self.z_threshold = z_threshold
 
+        # Pre-compute candidate token IDs
+        self.candidates = ["A", "B", "C", "D"]
+        self.candidate_ids = {}
+        for c in self.candidates:
+            # Try with and without leading space
+            ids = [self.tokenizer.encode(f" {c}", add_special_tokens=False),
+                   self.tokenizer.encode(c, add_special_tokens=False)]
+            # Pick the first valid non-empty one
+            for i in ids:
+                if i:
+                    self.candidate_ids[c] = i[0]
+                    break
+            if c not in self.candidate_ids:
+                print(f"Warning: Could not find token ID for {c}")
+                self.candidate_ids[c] = 0 # Fallback
+
         # Calibration stats (default to heuristics until calibrated)
-        self.mean_entropy = 2.5
-        self.std_entropy = 0.5
+        self.mean_entropy = 1.0 # Lower default for restricted set (max ln(4) ≈ 1.38)
+        self.std_entropy = 0.2
         self.is_calibrated = False
 
     def calibrate(self, dataset, n=50, prompt_fn=None):
@@ -63,7 +81,8 @@ class MCRE:
             with torch.no_grad():
                 outputs = self.model(**inputs)
                 logits = outputs.logits[0, -1, :]
-                e = self._calculate_entropy(logits)
+                probs, valid_mass = self._get_restricted_probs(logits)
+                e = self._calculate_entropy(probs)
                 entropies.append(e)
 
         self.mean_entropy = np.mean(entropies)
@@ -73,35 +92,28 @@ class MCRE:
         print(f"✅ Calibration complete: µ={self.mean_entropy:.2f}, σ={self.std_entropy:.2f}")
         self.model.train(model_training)
 
-    def _calculate_entropy(self, logits: torch.Tensor) -> float:
-        probs = torch.softmax(logits, dim=-1)
-        log_probs = torch.log(probs + 1e-9)
-        entropy = -torch.sum(probs * log_probs, dim=-1).item()
-        return entropy
-
-    def get_answer_and_confidence(self, logits: torch.Tensor) -> tuple[str, float]:
-        probs = torch.softmax(logits, dim=-1)
+    def _get_restricted_probs(self, logits: torch.Tensor) -> tuple[dict, float]:
+        """Normalize logits over A, B, C, D only."""
+        target_ids = [self.candidate_ids[c] for c in self.candidates]
+        target_logits = logits[target_ids]
         
-        answer_probs = {}
-        for answer in "ABCD":
-            # Handle tokenization
-            tokens = [self.tokenizer.encode(f" {answer}", add_special_tokens=False),
-                     self.tokenizer.encode(answer, add_special_tokens=False)]
-            # Use the first valid token found
-            token_id = None
-            for t in tokens:
-                if t:
-                    token_id = t[0]
-                    break
+        # Calculate restricted softmax
+        restricted_probs_tensor = torch.softmax(target_logits, dim=-1)
+        restricted_probs = {c: restricted_probs_tensor[i].item() for i, c in enumerate(self.candidates)}
 
-            if token_id is not None and token_id < logits.size(0):
-                answer_probs[answer] = probs[token_id].item()
-            else:
-                answer_probs[answer] = 0.0
+        # Calculate valid mass (from global softmax)
+        global_probs = torch.softmax(logits, dim=-1)
+        valid_mass = sum(global_probs[tid].item() for tid in target_ids)
         
-        best_answer = max(answer_probs, key=answer_probs.get) if answer_probs else "A"
-        confidence = answer_probs[best_answer]
-        return best_answer, confidence
+        return restricted_probs, valid_mass
+
+    def _calculate_entropy(self, probs: dict) -> float:
+        """Calculate entropy of the restricted distribution."""
+        p_values = np.array(list(probs.values()))
+        # Clip to avoid log(0)
+        p_values = np.clip(p_values, 1e-9, 1.0)
+        entropy = -np.sum(p_values * np.log(p_values))
+        return float(entropy)
     
     def evaluate(self, prompt: str) -> MCREState:
         inputs = self.tokenizer(prompt, return_tensors="pt", 
@@ -111,22 +123,31 @@ class MCRE:
             outputs = self.model(**inputs)
         
         logits = outputs.logits[0, -1, :]
-        entropy = self._calculate_entropy(logits)
+
+        # Get Restricted Distribution
+        probs, valid_mass = self._get_restricted_probs(logits)
+        entropy = self._calculate_entropy(probs)
 
         # Z-Score Calculation
         z_score = (entropy - self.mean_entropy) / self.std_entropy
         
-        answer, answer_conf = self.get_answer_and_confidence(logits)
+        # Determine Answer
+        best_answer = max(probs, key=probs.get)
+        confidence = probs[best_answer]
+
+        # Adaptive Abstention Logic (Smarter):
+        # 1. Uncertainty: Is the distribution flat? (High Z-score)
+        # 2. Format Failure: Is the model predicting something else entirely? (Low Valid Mass)
+        # Note: We now check confidence relative to restricted set, so it sums to 1.
+        # But if valid_mass is tiny (e.g. 0.001), the restricted distribution is noise.
         
-        # Adaptive Abstention Logic:
-        # Abstain if entropy is significantly higher than model's baseline (high Z-score)
-        # OR if direct answer confidence is very low.
-        should_abstain = (z_score > self.z_threshold) or (answer_conf < 0.2)
+        should_abstain = (z_score > self.z_threshold) or (confidence < 0.4) or (valid_mass < 0.01)
         
         return MCREState(
             uncertainty=entropy,
             z_score=z_score,
-            confidence=answer_conf,
+            confidence=confidence,
             should_abstain=should_abstain,
-            predicted_answer=answer
+            predicted_answer=best_answer,
+            valid_mass=valid_mass
         )
