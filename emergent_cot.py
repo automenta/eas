@@ -17,11 +17,17 @@ class EmergentCoTGenerator:
     ]
     LOGICAL_CONNECTIVES = ["because", "since", "therefore", "implies", "if", "then", "however", "but", "so", "due to", "reason"]
     
-    def __init__(self, model_name="EleutherAI/pythia-410m", device="cpu"):
-        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
-        self.tokenizer.pad_token = self.tokenizer.eos_token
-        self.model = AutoModelForCausalLM.from_pretrained(model_name).to(device)
-        self.device = device
+    def __init__(self, model_name="EleutherAI/pythia-410m", device="cpu", model=None, tokenizer=None):
+        if model and tokenizer:
+            self.model = model
+            self.tokenizer = tokenizer
+            self.device = model.device
+        else:
+            self.tokenizer = AutoTokenizer.from_pretrained(model_name)
+            self.tokenizer.pad_token = self.tokenizer.eos_token
+            self.model = AutoModelForCausalLM.from_pretrained(model_name).to(device)
+            self.device = device
+
         self.elaboration_count = 0
 
     def calculate_reasoning_density(self, text):
