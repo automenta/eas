@@ -17,6 +17,7 @@
 8. [Research Roadmap](#8-research-roadmap)
 9. [Proof-of-Concept Code](#9-proof-of-concept-code)
 10. [Implications & Vision](#10-implications--vision)
+11. [Interactive Dashboard Specification](#11-interactive-dashboard-specification)
 
 ---
 
@@ -447,6 +448,148 @@ AFT is particularly suited for **commodity hardware**:
 3. Users inject them into local models for instant, zero-shot upgrades.
 
 This combines the **power of learning** (clean, optimized vectors) with the **convenience of zero-shot** (no user training required).
+
+---
+
+## 11. Interactive Dashboard Specification
+
+### 11.1. Design Goals
+
+The next-generation experiment runner should be:
+1. **Engaging & Entertaining**: Animated progress, live sample streaming, visual feedback
+2. **Rapid Feedback**: Show input/output samples as they're processed in real-time
+3. **Comprehensive**: Collect additional metrics for deeper insight
+4. **Clear**: Color-coded results, real-time charts, intuitive layout
+
+### 11.2. UI Technology Choice
+
+**Recommended: Rich + Textual (Advanced TUI)**
+
+| Option | Pros | Cons |
+| :--- | :--- | :--- |
+| **Rich/Textual TUI** | Works over SSH, no display deps, fast | Terminal-only |
+| **PyQt GUI** | Rich visuals, graphs | Requires display, heavier |
+
+For GPU servers accessed via SSH, the TUI is preferred.
+
+### 11.3. Proposed Layout
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│  🧠 AFT UNIVERSALITY DASHBOARD                              [02:34:56]  │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│  ┌─ CURRENT EXPERIMENT ─────────────────────────────────────────────┐  │
+│  │  Model: Qwen/Qwen1.5-0.5B-Chat                                   │  │
+│  │  Dataset: gsm8k            Layer: 8/24                           │  │
+│  │  Epoch: 2/5                Sample: 34/50                         │  │
+│  │  ████████████████████░░░░░░░░░░ 68%                               │  │
+│  └──────────────────────────────────────────────────────────────────┘  │
+│                                                                         │
+│  ┌─ LIVE SAMPLE ────────────────────────────────────────────────────┐  │
+│  │  📝 PROMPT:                                                       │  │
+│  │  "Question: If Sarah has 5 apples and buys 3 more..."            │  │
+│  │                                                                   │  │
+│  │  🎯 TARGET: "8"                                                   │  │
+│  │  🤖 MODEL:  "8" ✅                    Loss: 0.2341                │  │
+│  └──────────────────────────────────────────────────────────────────┘  │
+│                                                                         │
+│  ┌─ TRAINING DYNAMICS ──────────────────────────────────────────────┐  │
+│  │  Loss:  2.1 ┤████████████▌                                       │  │
+│  │        1.8 ┤██████████                                           │  │
+│  │        1.5 ┤███████▌                                             │  │
+│  │        1.2 ┤█████                                                │  │
+│  │             └────────────────────────────────────                │  │
+│  │               E1    E2    E3    E4    E5                         │  │
+│  │                                                                   │  │
+│  │  Vector Norm: 0.0234  |  Gradient Norm: 0.0012                   │  │
+│  └──────────────────────────────────────────────────────────────────┘  │
+│                                                                         │
+│  ┌─ RESULTS SO FAR ─────────────────────────────────────────────────┐  │
+│  │  Model              │ HellaSwag │ ARC │ GSM8K │ Avg              │  │
+│  │  ───────────────────┼───────────┼─────┼───────┼────              │  │
+│  │  Qwen-0.5B          │   +8% ✅  │ 0%  │  0%   │ +2.7%            │  │
+│  │  Qwen-0.5B-Chat     │   -2% ❌  │+8%✅│ +20%✅│ +8.7%            │  │
+│  │  Pythia-410m        │   +6% ✅  │+4%✅│ +2%✅ │ +4.0%            │  │
+│  │  🔄 Processing...                                                │  │
+│  └──────────────────────────────────────────────────────────────────┘  │
+│                                                                         │
+│  ┌─ STATISTICS ─────────────────────────────────────────────────────┐  │
+│  │  Total Experiments: 12/21   Remaining: ~45 min                   │  │
+│  │  ✅ Positive: 8 (67%)  ⏸️ Neutral: 1 (8%)  ❌ Negative: 3 (25%)  │  │
+│  │  Best Result: +20% (Qwen-0.5B-Chat / GSM8K)                      │  │
+│  └──────────────────────────────────────────────────────────────────┘  │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+### 11.4. Additional Metrics to Collect
+
+#### Per-Sample Metrics
+| Metric | Purpose |
+| :--- | :--- |
+| Token-level loss breakdown | Identify which tokens are hardest |
+| Prediction confidence (softmax max) | Calibration analysis |
+| Baseline vs steered correctness | Track flips (wrong→right, right→wrong) |
+| Processing time (ms) | Performance profiling |
+
+#### Per-Layer Metrics (during sweep)
+| Metric | Purpose |
+| :--- | :--- |
+| Loss trajectory | Convergence speed |
+| Gradient magnitude | Learning signal strength |
+| Vector norm evolution | Intervention intensity |
+
+#### Per-Experiment Metrics
+| Metric | Purpose |
+| :--- | :--- |
+| Train/test accuracy gap | Overfitting indicator |
+| Best epoch (early stopping point) | Optimal training length |
+| Loss curve shape | Convergence analysis |
+| Sample-level predictions | Error analysis, confusion patterns |
+
+#### Cross-Experiment Analytics
+| Metric | Purpose |
+| :--- | :--- |
+| Success rate by architecture | Model family comparison |
+| Success rate by dataset | Task difficulty analysis |
+| Correlation: size vs improvement | Scaling behavior |
+| Correlation: baseline vs improvement | "Headroom" analysis |
+
+### 11.5. Interactive Features
+
+| Feature | Description |
+| :--- | :--- |
+| **Live Sample Streaming** | Show prompt snippets and model outputs in real-time |
+| **Animated Progress** | Sparklines, spinners, pulsing indicators |
+| **Keyboard Controls** | `p` pause/resume, `s` skip experiment, `q` quit |
+| **Auto-Save** | Checkpoint state every 30 seconds |
+| **Resume Support** | Continue from last checkpoint on restart |
+| **Sound Effects** (optional) | Ding on success, buzz on failure |
+
+### 11.6. Output Files
+
+```
+results/dashboard/
+├── all_results.json          # Aggregated experiment results
+├── experiments/
+│   ├── qwen_0.5b_hellaswag.json
+│   ├── qwen_0.5b_arc_challenge.json
+│   └── ...
+├── samples/
+│   ├── qwen_0.5b_hellaswag_predictions.csv
+│   └── ...
+└── dashboard_state.json      # For resume support
+```
+
+### 11.7. Implementation Phases
+
+| Phase | Scope | Priority |
+| :--- | :--- | :---: |
+| **Phase 1** | Core dashboard with Rich Live, progress, live sample | High |
+| **Phase 2** | Per-sample logging, loss visualization, gradient tracking | Medium |
+| **Phase 3** | Keyboard controls, pause/resume, skip | Medium |
+| **Phase 4** | Post-experiment analysis, CSV export, HTML report | Low |
 
 ---
 
