@@ -1,0 +1,13 @@
+{
+  "model": "stabilityai/stablelm-2-1_6b",
+  "dataset": "gsm8k",
+  "layer": 8,
+  "baseline_acc": 0.3,
+  "final_acc": 0.3,
+  "improvement": 0.0,
+  "loss_history": [
+    1.0102405047416687,
+    0.9429763585329056,
+    0.9021658462285995
+  ]
+}

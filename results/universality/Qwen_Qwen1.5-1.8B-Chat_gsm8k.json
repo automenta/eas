@@ -1,0 +1,13 @@
+{
+  "model": "Qwen/Qwen1.5-1.8B-Chat",
+  "dataset": "gsm8k",
+  "layer": 12,
+  "baseline_acc": 0.4,
+  "final_acc": 0.36,
+  "improvement": -0.040000000000000036,
+  "loss_history": [
+    0.6406039494276047,
+    0.5812823832035064,
+    0.5529901611804963
+  ]
+}

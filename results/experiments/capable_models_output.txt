@@ -1,0 +1,37 @@
+`trust_remote_code` is not supported anymore.
+Please check that the Hugging Face dataset 'Rowan/hellaswag' isn't based on a loading script and remove `trust_remote_code`.
+If the dataset is based on a loading script, please ask the dataset author to remove it and convert it to a standard format like Parquet.
+============================================================
+FINDING SMALLEST REASONING-CAPABLE MODELS
+============================================================
+
+============================================================
+TESTING: TinyLlama/TinyLlama-1.1B-Chat-v1.0
+============================================================
+Loading model...
+Loading HellaSwag...
+Evaluating on 100 samples...
+Testing:   0%|          | 0/100 [00:00<?, ?it/s]Testing:   1%|          | 1/100 [00:00<01:16,  1.30it/s]Testing:   4%|▍         | 4/100 [00:00<00:16,  5.77it/s]Testing:   8%|▊         | 8/100 [00:00<00:07, 11.99it/s]Testing:  12%|█▏        | 12/100 [00:01<00:04, 17.69it/s]Testing:  16%|█▌        | 16/100 [00:01<00:03, 22.68it/s]Testing:  20%|██        | 20/100 [00:01<00:02, 26.77it/s]Testing:  24%|██▍       | 24/100 [00:01<00:02, 30.06it/s]Testing:  28%|██▊       | 28/100 [00:01<00:02, 32.51it/s]Testing:  32%|███▏      | 32/100 [00:01<00:01, 34.18it/s]Testing:  36%|███▌      | 36/100 [00:01<00:01, 35.73it/s]Testing:  41%|████      | 41/100 [00:01<00:01, 37.20it/s]Testing:  46%|████▌     | 46/100 [00:01<00:01, 38.12it/s]Testing:  51%|█████     | 51/100 [00:02<00:01, 38.80it/s]Testing:  55%|█████▌    | 55/100 [00:02<00:01, 37.58it/s]Testing:  60%|██████    | 60/100 [00:02<00:01, 38.40it/s]Testing:  65%|██████▌   | 65/100 [00:02<00:00, 38.99it/s]Testing:  70%|███████   | 70/100 [00:02<00:00, 39.43it/s]Testing:  74%|███████▍  | 74/100 [00:02<00:00, 39.54it/s]Testing:  79%|███████▉  | 79/100 [00:02<00:00, 39.85it/s]Testing:  83%|████████▎ | 83/100 [00:02<00:00, 39.83it/s]Testing:  88%|████████▊ | 88/100 [00:02<00:00, 39.99it/s]Testing:  93%|█████████▎| 93/100 [00:03<00:00, 39.98it/s]Testing:  98%|█████████▊| 98/100 [00:03<00:00, 39.95it/s]Testing: 100%|██████████| 100/100 [00:03<00:00, 30.32it/s]
+
+>>> TinyLlama/TinyLlama-1.1B-Chat-v1.0: 23.0% accuracy (23/100)
+
+============================================================
+TESTING: microsoft/phi-2
+============================================================
+Loading model...
+Fetching 2 files:   0%|          | 0/2 [00:00<?, ?it/s]Fetching 2 files:  50%|█████     | 1/2 [01:05<01:05, 65.38s/it]Fetching 2 files: 100%|██████████| 2/2 [01:05<00:00, 32.69s/it]
+Loading checkpoint shards:   0%|          | 0/2 [00:00<?, ?it/s]Loading checkpoint shards:  50%|█████     | 1/2 [00:14<00:14, 14.68s/it]Loading checkpoint shards: 100%|██████████| 2/2 [00:15<00:00,  6.49s/it]Loading checkpoint shards: 100%|██████████| 2/2 [00:15<00:00,  7.72s/it]
+`trust_remote_code` is not supported anymore.
+Please check that the Hugging Face dataset 'Rowan/hellaswag' isn't based on a loading script and remove `trust_remote_code`.
+If the dataset is based on a loading script, please ask the dataset author to remove it and convert it to a standard format like Parquet.
+Loading HellaSwag...
+Evaluating on 100 samples...
+Testing:   0%|          | 0/100 [00:00<?, ?it/s]Testing:   1%|          | 1/100 [00:00<00:35,  2.81it/s]Testing:   5%|▌         | 5/100 [00:00<00:07, 12.36it/s]Testing:   9%|▉         | 9/100 [00:00<00:04, 18.44it/s]Testing:  13%|█▎        | 13/100 [00:00<00:03, 22.49it/s]Testing:  17%|█▋        | 17/100 [00:00<00:03, 25.11it/s]Testing:  21%|██        | 21/100 [00:01<00:02, 27.01it/s]Testing:  25%|██▌       | 25/100 [00:01<00:02, 28.37it/s]Testing:  29%|██▉       | 29/100 [00:01<00:02, 29.14it/s]Testing:  33%|███▎      | 33/100 [00:01<00:02, 29.71it/s]Testing:  37%|███▋      | 37/100 [00:01<00:02, 30.17it/s]Testing:  41%|████      | 41/100 [00:01<00:01, 30.51it/s]Testing:  45%|████▌     | 45/100 [00:01<00:01, 30.49it/s]Testing:  49%|████▉     | 49/100 [00:01<00:01, 30.65it/s]Testing:  53%|█████▎    | 53/100 [00:02<00:01, 30.90it/s]Testing:  57%|█████▋    | 57/100 [00:02<00:01, 31.13it/s]Testing:  61%|██████    | 61/100 [00:02<00:01, 31.09it/s]Testing:  65%|██████▌   | 65/100 [00:02<00:01, 31.20it/s]Testing:  69%|██████▉   | 69/100 [00:02<00:00, 31.35it/s]Testing:  73%|███████▎  | 73/100 [00:02<00:00, 31.36it/s]Testing:  77%|███████▋  | 77/100 [00:02<00:00, 31.43it/s]Testing:  81%|████████  | 81/100 [00:02<00:00, 31.59it/s]Testing:  85%|████████▌ | 85/100 [00:03<00:00, 31.42it/s]Testing:  89%|████████▉ | 89/100 [00:03<00:00, 29.29it/s]Testing:  92%|█████████▏| 92/100 [00:03<00:00, 29.46it/s]Testing:  95%|█████████▌| 95/100 [00:03<00:00, 29.44it/s]Testing:  98%|█████████▊| 98/100 [00:03<00:00, 29.48it/s]Testing: 100%|██████████| 100/100 [00:03<00:00, 27.97it/s]
+
+>>> microsoft/phi-2: 38.0% accuracy (38/100)
+
+============================================================
+SUMMARY
+============================================================
+  TinyLlama/TinyLlama-1.1B-Chat-v1.0: 23.0% ✗ Random
+  microsoft/phi-2: 38.0% ✓ CAN REASON

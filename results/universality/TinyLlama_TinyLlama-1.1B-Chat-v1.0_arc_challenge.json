@@ -1,0 +1,13 @@
+{
+  "model": "TinyLlama/TinyLlama-1.1B-Chat-v1.0",
+  "dataset": "arc_challenge",
+  "layer": 5,
+  "baseline_acc": 0.26,
+  "final_acc": 0.26,
+  "improvement": 0.0,
+  "loss_history": [
+    0.41245357275009153,
+    1.0101795196533203e-05,
+    7.648468017578125e-06
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "model": "microsoft/phi-1_5",
+  "dataset": "hellaswag",
+  "layer": 8,
+  "baseline_acc": 0.32,
+  "final_acc": 0.32,
+  "improvement": 0.0,
+  "loss_history": [
+    1.4185205078125,
+    1.3648974609375,
+    1.329644775390625
+  ]
+}

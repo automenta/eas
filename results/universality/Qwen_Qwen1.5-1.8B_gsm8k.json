@@ -1,0 +1,13 @@
+{
+  "model": "Qwen/Qwen1.5-1.8B",
+  "dataset": "gsm8k",
+  "layer": 6,
+  "baseline_acc": 0.4,
+  "final_acc": 0.44,
+  "improvement": 0.03999999999999998,
+  "loss_history": [
+    0.5601360136270523,
+    0.4939664375782013,
+    0.47349956214427946
+  ]
+}

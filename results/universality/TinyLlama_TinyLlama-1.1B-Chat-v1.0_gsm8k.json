@@ -1,0 +1,13 @@
+{
+  "model": "TinyLlama/TinyLlama-1.1B-Chat-v1.0",
+  "dataset": "gsm8k",
+  "layer": 5,
+  "baseline_acc": 0.12,
+  "final_acc": 0.08,
+  "improvement": -0.039999999999999994,
+  "loss_history": [
+    1.4016205036640168,
+    1.1373728179931641,
+    1.007556253671646
+  ]
+}

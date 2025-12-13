@@ -1,0 +1,13 @@
+{
+  "model": "stabilityai/stablelm-2-1_6b",
+  "dataset": "arc_challenge",
+  "layer": 6,
+  "baseline_acc": 0.5,
+  "final_acc": 0.48,
+  "improvement": -0.020000000000000018,
+  "loss_history": [
+    1.193765869140625,
+    1.067316436767578,
+    1.0028795623779296
+  ]
+}

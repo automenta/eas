@@ -1,6 +1,0 @@
-{
-  "status": "error",
-  "layer_summary": {},
-  "error": "min() iterable argument is empty",
-  "traceback": "Traceback (most recent call last):\n  File \"/home/me/eas/eas/analysis/scripts/run_attention_analysis.py\", line 338, in run_attention_analysis\n    min_cos_sim = min(\n        summary.get(\"mean_cos_sim\", 1.0)\n        for summary in results[\"layer_summary\"].values()\n    )\nValueError: min() iterable argument is empty\n"
-}

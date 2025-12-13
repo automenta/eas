@@ -1,0 +1,13 @@
+{
+  "date": "2025-12-13T10:28:26.232178",
+  "duration_minutes": 0.19988783333333335,
+  "model": "gpt2",
+  "n_samples": 500,
+  "layer": -1,
+  "model_accuracy": 0.264,
+  "probe_accuracy": 0.612,
+  "probe_std": 0.04069397989875161,
+  "probe_auc": 0.5086050750434312,
+  "result": "PASS",
+  "pass_threshold": 0.55
+}

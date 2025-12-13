@@ -1,0 +1,13 @@
+{
+  "model": "microsoft/phi-1_5",
+  "dataset": "gsm8k",
+  "layer": 6,
+  "baseline_acc": 0.26,
+  "final_acc": 0.3,
+  "improvement": 0.03999999999999998,
+  "loss_history": [
+    1.2898689138889312,
+    1.2555221426486969,
+    1.226427468061447
+  ]
+}

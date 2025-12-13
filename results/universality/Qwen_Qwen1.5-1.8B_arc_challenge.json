@@ -1,0 +1,13 @@
+{
+  "model": "Qwen/Qwen1.5-1.8B",
+  "dataset": "arc_challenge",
+  "layer": 6,
+  "baseline_acc": 0.62,
+  "final_acc": 0.6,
+  "improvement": -0.020000000000000018,
+  "loss_history": [
+    1.2699176025390626,
+    1.0033787536621093,
+    0.8264179992675781
+  ]
+}

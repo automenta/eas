@@ -1,0 +1,13 @@
+{
+  "model": "stabilityai/stablelm-2-1_6b",
+  "dataset": "hellaswag",
+  "layer": 6,
+  "baseline_acc": 0.44,
+  "final_acc": 0.54,
+  "improvement": 0.10000000000000003,
+  "loss_history": [
+    1.20627685546875,
+    1.0871237182617188,
+    0.9977825927734375
+  ]
+}

@@ -1,101 +1,448 @@
 #!/usr/bin/env python3
-"""david_vs_goliath.py - Small model beats large model"""
+"""
+david_vs_goliath.py - Complete David vs Goliath Benchmark
 
+Tests whether smaller models enhanced with EAS (Emergent Activation Snapping)
+can achieve equal or better accuracy than larger baseline models.
+
+Experiment Structure:
+1. Load multiple models (small "Davids" and large "Goliaths")
+2. For each model, test with and without EAS enhancement
+3. Compare raw accuracy improvements
+4. Determine whether EAS enables small models to match/beat large ones
+
+Usage:
+    python david_vs_goliath.py                    # Default benchmark
+    python david_vs_goliath.py --quick            # Quick test (30 samples)
+    python david_vs_goliath.py --samples 200      # Full benchmark
+    python david_vs_goliath.py --models pythia-70m gpt2  # Specific models
+"""
+
+import argparse
 import torch
-from transformers import AutoModelForCausalLM, AutoTokenizer, GPT2LMHeadModel
-from datasets import load_dataset
-from tqdm import tqdm
+import time
+import json
+from typing import List, Dict, Any, Optional
+from dataclasses import dataclass
+from copy import deepcopy
 
-def load_model(name, device):
-    tokenizer = AutoTokenizer.from_pretrained(name)
-    tokenizer.pad_token = tokenizer.eos_token
-    model = AutoModelForCausalLM.from_pretrained(name).to(device).eval()
-    return model, tokenizer
+from eas_core import EASConfig, EASIntervener, wrap_model_with_eas
+from utils import (
+    load_model, load_logiqa, load_arc_challenge,
+    evaluate_model, print_results_table, save_results,
+    BenchmarkResult, EvalSample, get_device, MODEL_REGISTRY
+)
 
-def get_answer_confidence(model, tokenizer, prompt, device):
-    """Get model's answer and confidence via log probability."""
-    inputs = tokenizer(prompt, return_tensors="pt").to(device)
+
+@dataclass
+class ExperimentConfig:
+    """Configuration for a single experiment run."""
+    model_key: str
+    config_name: str
+    use_eas: bool
+    eas_config: Optional[EASConfig] = None
+    random_control: bool = False  # Random perturbation instead of EAS
+
+
+def create_experiment_configs(
+    model_keys: List[str],
+    include_baselines: bool = True,
+    include_eas: bool = True,
+    include_random: bool = True
+) -> List[ExperimentConfig]:
+    """Create all experiment configurations to run."""
+    configs = []
     
-    with torch.no_grad():
-        outputs = model(**inputs)
-        logits = outputs.logits[0, -1, :]
-        probs = torch.softmax(logits, dim=-1)
+    for model_key in model_keys:
+        model_info = MODEL_REGISTRY[model_key]
+        hidden_dim = model_info["hidden_dim"]
         
-        # Check confidence in answer tokens (A, B, C, D)
-        answer_tokens = [tokenizer.encode(f" {c}")[0] for c in "ABCD"]
-        answer_probs = [probs[t].item() for t in answer_tokens]
+        if include_baselines:
+            # Baseline: no intervention
+            configs.append(ExperimentConfig(
+                model_key=model_key,
+                config_name="baseline",
+                use_eas=False
+            ))
         
-        best_idx = max(range(4), key=lambda i: answer_probs[i])
-        confidence = answer_probs[best_idx]
-        answer = "ABCD"[best_idx]
+        if include_eas:
+            # EAS with default settings
+            configs.append(ExperimentConfig(
+                model_key=model_key,
+                config_name="eas",
+                use_eas=True,
+                eas_config=EASConfig(
+                    hidden_dim=hidden_dim,
+                    num_attractors=10,
+                    base_alpha=0.3,
+                    warmup_samples=15
+                )
+            ))
+            
+            # EAS with stronger intervention
+            configs.append(ExperimentConfig(
+                model_key=model_key,
+                config_name="eas_strong",
+                use_eas=True,
+                eas_config=EASConfig(
+                    hidden_dim=hidden_dim,
+                    num_attractors=10,
+                    base_alpha=0.5,
+                    warmup_samples=15
+                )
+            ))
+        
+        if include_random:
+            # Random control: same perturbation magnitude but random direction
+            configs.append(ExperimentConfig(
+                model_key=model_key,
+                config_name="random_control",
+                use_eas=False,
+                random_control=True
+            ))
     
-    return answer, confidence
+    return configs
 
-def run_comparison(num_test=100):
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+
+class RandomPerturbationIntervener:
+    """Control: random perturbation with same magnitude as EAS."""
     
-    print("Loading models...")
-    small_model, small_tok = load_model("EleutherAI/pythia-70m", device)
-    large_model, large_tok = load_model("gpt2-large", device)  # 774M params
+    def __init__(self, hidden_dim: int, magnitude: float = 0.1):
+        self.hidden_dim = hidden_dim
+        self.magnitude = magnitude
+        self.intervention_count = 0
+        self.total_samples = 0
+        self.successful_samples = 0
+        self.last_hidden_state = None
     
-    dataset = load_dataset("lucasmccabe/logiqa", split="validation")
+    def intervene(self, hidden_state: torch.Tensor) -> torch.Tensor:
+        """Apply random perturbation."""
+        self.last_hidden_state = hidden_state.detach().clone()
+        noise = torch.randn_like(hidden_state) * self.magnitude
+        self.intervention_count += 1
+        return hidden_state + noise
     
-    # Results tracking
-    results = {
-        "small_correct": 0, "small_wrong": 0, "small_abstained": 0,
-        "large_correct": 0, "large_wrong": 0
+    def record_sample(self):
+        self.total_samples += 1
+    
+    def update_on_success(self, hidden_state=None):
+        self.successful_samples += 1
+    
+    def get_stats(self):
+        return {
+            "total_samples": self.total_samples,
+            "successful_samples": self.successful_samples,
+            "intervention_count": self.intervention_count,
+            "attractor_entropy": 0.0,
+            "warmup_complete": True,
+        }
+
+
+def run_single_experiment(
+    experiment: ExperimentConfig,
+    samples: List[EvalSample],
+    device: str,
+    verbose: bool = True
+) -> BenchmarkResult:
+    """Run a single experiment configuration."""
+    
+    model_info = MODEL_REGISTRY[experiment.model_key]
+    
+    if verbose:
+        print(f"\n{'='*60}")
+        print(f"Running: {experiment.model_key} + {experiment.config_name}")
+        print(f"{'='*60}")
+    
+    # Load model
+    model, tokenizer, info = load_model(experiment.model_key, device)
+    
+    intervener = None
+    
+    if experiment.use_eas:
+        # Wrap with EAS
+        model, intervener = wrap_model_with_eas(
+            model,
+            hidden_dim=model_info["hidden_dim"],
+            config=experiment.eas_config
+        )
+        intervener.to(device)
+        
+        if verbose:
+            print(f"EAS enabled: {experiment.eas_config.num_attractors} attractors, "
+                  f"alpha={experiment.eas_config.base_alpha}")
+    
+    elif experiment.random_control:
+        # Random perturbation control
+        intervener = RandomPerturbationIntervener(model_info["hidden_dim"])
+        if verbose:
+            print("Random perturbation control enabled")
+    
+    # Evaluate
+    result = evaluate_model(
+        model, tokenizer, samples,
+        device=device,
+        show_progress=verbose,
+        intervener=intervener
+    )
+    
+    result.model_name = f"{experiment.model_key} ({model_info['size']})"
+    result.config_name = experiment.config_name
+    
+    if verbose:
+        print(f"Result: {result.accuracy:.1%} accuracy ({result.num_correct}/{result.num_samples})")
+        if intervener:
+            stats = intervener.get_stats()
+            print(f"Interventions: {stats['intervention_count']}")
+    
+    # Clean up model to free memory
+    del model
+    del tokenizer
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+    
+    return result
+
+
+def run_benchmark(
+    model_keys: Optional[List[str]] = None,
+    num_samples: int = 100,
+    dataset: str = "logiqa",
+    device: Optional[str] = None,
+    include_random: bool = True,
+    verbose: bool = True
+) -> List[BenchmarkResult]:
+    """
+    Run the complete David vs Goliath benchmark.
+    
+    Args:
+        model_keys: Models to test (default: pythia-70m, gpt2, gpt2-medium)
+        num_samples: Number of samples to evaluate
+        dataset: Dataset to use ("logiqa" or "arc")
+        device: Device to run on (auto-detected if None)
+        include_random: Include random perturbation control
+        verbose: Print progress
+    
+    Returns:
+        List of BenchmarkResults
+    """
+    device = device or get_device()
+    
+    if model_keys is None:
+        # Default: compare small Davids with medium Goliath
+        model_keys = ["pythia-70m", "gpt2", "gpt2-medium"]
+    
+    if verbose:
+        print("\n" + "="*60)
+        print("DAVID VS GOLIATH BENCHMARK")
+        print("="*60)
+        print(f"Device: {device}")
+        print(f"Models: {', '.join(model_keys)}")
+        print(f"Samples: {num_samples}")
+        print(f"Dataset: {dataset}")
+        print("="*60)
+    
+    # Load dataset
+    if dataset == "logiqa":
+        samples = load_logiqa(max_samples=num_samples)
+    elif dataset == "arc":
+        samples = load_arc_challenge(max_samples=num_samples)
+    else:
+        raise ValueError(f"Unknown dataset: {dataset}")
+    
+    # Create experiment configurations
+    experiments = create_experiment_configs(
+        model_keys,
+        include_baselines=True,
+        include_eas=True,
+        include_random=include_random
+    )
+    
+    if verbose:
+        print(f"\nTotal experiments: {len(experiments)}")
+    
+    # Run all experiments
+    results = []
+    for exp in experiments:
+        try:
+            result = run_single_experiment(exp, samples, device, verbose)
+            results.append(result)
+        except Exception as e:
+            print(f"Error running {exp.model_key} + {exp.config_name}: {e}")
+            continue
+    
+    return results
+
+
+def analyze_results(results: List[BenchmarkResult]) -> Dict[str, Any]:
+    """
+    Analyze benchmark results to determine if David beats Goliath.
+    """
+    analysis = {
+        "eas_helps": False,
+        "david_beats_goliath": False,
+        "best_david": None,
+        "best_goliath": None,
+        "improvements": []
     }
     
-    abstention_threshold = 0.35  # Abstain if max prob < 35%
+    # Group by model
+    by_model = {}
+    for r in results:
+        model_key = r.model_name.split()[0]  # Extract model name
+        if model_key not in by_model:
+            by_model[model_key] = {}
+        by_model[model_key][r.config_name] = r
     
-    for i in tqdm(range(min(num_test, len(dataset)))):
-        ex = dataset[i]
-        prompt = f"Q: {ex['question']}\nA:"
-        correct = "ABCD"[ex['answer']]
-        
-        # Large model (no abstention)
-        large_ans, large_conf = get_answer_confidence(large_model, large_tok, prompt, device)
-        if large_ans == correct:
-            results["large_correct"] += 1
-        else:
-            results["large_wrong"] += 1
-        
-        # Small model (with abstention)
-        small_ans, small_conf = get_answer_confidence(small_model, small_tok, prompt, device)
-        if small_conf < abstention_threshold:
-            results["small_abstained"] += 1
-        elif small_ans == correct:
-            results["small_correct"] += 1
-        else:
-            results["small_wrong"] += 1
+    # Check if EAS improves accuracy for each model
+    for model_key, configs in by_model.items():
+        if "baseline" in configs and "eas" in configs:
+            baseline_acc = configs["baseline"].accuracy
+            eas_acc = configs["eas"].accuracy
+            improvement = eas_acc - baseline_acc
+            
+            analysis["improvements"].append({
+                "model": model_key,
+                "baseline": baseline_acc,
+                "eas": eas_acc,
+                "improvement": improvement,
+                "improved": improvement > 0
+            })
+            
+            if improvement > 0:
+                analysis["eas_helps"] = True
     
-    # Calculate metrics
-    large_acc = results["large_correct"] / num_test
-    small_answered = results["small_correct"] + results["small_wrong"]
-    small_acc_answered = results["small_correct"] / small_answered if small_answered else 0
-    small_abstention_rate = results["small_abstained"] / num_test
+    # Find best David and Goliath
+    davids = [r for r in results if "70m" in r.model_name or "gpt2 " in r.model_name.lower()]
+    goliaths = [r for r in results if "medium" in r.model_name.lower() or "large" in r.model_name.lower()]
     
-    # Effective accuracy (abstention = 0.5 value)
-    large_effective = large_acc
-    small_effective = (small_acc_answered * (1 - small_abstention_rate) + 
-                       0.5 * small_abstention_rate)
+    if davids:
+        best_david = max(davids, key=lambda r: r.accuracy)
+        analysis["best_david"] = {
+            "model": best_david.model_name,
+            "config": best_david.config_name,
+            "accuracy": best_david.accuracy
+        }
     
-    print(f"\n{'='*60}")
-    print(f"DAVID VS GOLIATH RESULTS")
-    print(f"{'='*60}")
-    print(f"\nGPT-2-Large (774M params):")
-    print(f"  Accuracy: {large_acc:.1%}")
-    print(f"  Effective: {large_effective:.1%}")
-    print(f"\nPythia-70m + Abstention (70M params, 11x smaller):")
-    print(f"  Accuracy (answered): {small_acc_answered:.1%}")
-    print(f"  Abstention rate: {small_abstention_rate:.1%}")
-    print(f"  Effective: {small_effective:.1%}")
-    print(f"\n{'='*60}")
+    if goliaths:
+        best_goliath = max(goliaths, key=lambda r: r.accuracy)
+        analysis["best_goliath"] = {
+            "model": best_goliath.model_name,
+            "config": best_goliath.config_name,
+            "accuracy": best_goliath.accuracy
+        }
     
-    if small_acc_answered > large_acc:
-        print(f"🏆 DAVID WINS! Small model achieves higher accuracy on answered questions!")
-    elif small_effective >= large_effective:
-        print(f"🏆 DAVID WINS! Small model matches effective accuracy with 11x fewer params!")
+    # David beats Goliath?
+    if analysis["best_david"] and analysis["best_goliath"]:
+        if analysis["best_david"]["accuracy"] >= analysis["best_goliath"]["accuracy"]:
+            analysis["david_beats_goliath"] = True
+    
+    return analysis
+
+
+def print_analysis(analysis: Dict[str, Any]):
+    """Print analysis results."""
+    print("\n" + "="*60)
+    print("ANALYSIS")
+    print("="*60)
+    
+    # EAS improvements
+    print("\n📊 EAS Effect on Accuracy:")
+    for imp in analysis["improvements"]:
+        emoji = "✅" if imp["improved"] else "❌"
+        sign = "+" if imp["improvement"] >= 0 else ""
+        print(f"  {emoji} {imp['model']}: {imp['baseline']:.1%} → {imp['eas']:.1%} "
+              f"({sign}{imp['improvement']:.1%})")
+    
+    # David vs Goliath
+    print("\n🏆 David vs Goliath:")
+    if analysis["best_david"]:
+        d = analysis["best_david"]
+        print(f"  Best David: {d['model']} + {d['config']} = {d['accuracy']:.1%}")
+    if analysis["best_goliath"]:
+        g = analysis["best_goliath"]
+        print(f"  Best Goliath: {g['model']} + {g['config']} = {g['accuracy']:.1%}")
+    
+    if analysis["david_beats_goliath"]:
+        print("\n  🎉 DAVID WINS! Small model matches or beats larger model!")
+    else:
+        print("\n  👑 Goliath still leads (larger model is more accurate)")
+    
+    # Verdict
+    print("\n" + "="*60)
+    print("VERDICT")
+    print("="*60)
+    
+    if analysis["eas_helps"] and analysis["david_beats_goliath"]:
+        print("✅ EAS VALIDATED: Improves accuracy AND enables small models to compete!")
+        print("   Recommendation: CONTINUE research, prepare publication")
+    elif analysis["eas_helps"]:
+        print("🔶 EAS PARTIALLY VALIDATED: Improves accuracy but not enough to beat larger models")
+        print("   Recommendation: TUNE further or try larger Davids (Pythia-410m)")
+    else:
+        print("❌ EAS NOT VALIDATED: No consistent accuracy improvement observed")
+        print("   Recommendation: INVESTIGATE or PIVOT research direction")
+
+
+def main():
+    parser = argparse.ArgumentParser(description="David vs Goliath EAS Benchmark")
+    parser.add_argument("--models", nargs="+", default=None,
+                       help="Models to test (default: pythia-70m, gpt2, gpt2-medium)")
+    parser.add_argument("--samples", type=int, default=100,
+                       help="Number of samples to evaluate")
+    parser.add_argument("--dataset", choices=["logiqa", "arc"], default="logiqa",
+                       help="Dataset to use")
+    parser.add_argument("--device", type=str, default=None,
+                       help="Device (cuda/cpu/mps, auto-detected if not specified)")
+    parser.add_argument("--quick", action="store_true",
+                       help="Quick test with 30 samples and fewer models")
+    parser.add_argument("--no-random", action="store_true",
+                       help="Skip random control experiments")
+    parser.add_argument("--output", type=str, default="results.json",
+                       help="Output file for results")
+    parser.add_argument("--quiet", action="store_true",
+                       help="Minimal output")
+    
+    args = parser.parse_args()
+    
+    # Quick mode overrides
+    if args.quick:
+        args.samples = 30
+        if args.models is None:
+            args.models = ["pythia-70m", "gpt2"]
+    
+    # Available models check
+    if args.models:
+        for m in args.models:
+            if m not in MODEL_REGISTRY:
+                print(f"Unknown model: {m}")
+                print(f"Available: {', '.join(MODEL_REGISTRY.keys())}")
+                return
+    
+    # Run benchmark
+    start_time = time.time()
+    
+    results = run_benchmark(
+        model_keys=args.models,
+        num_samples=args.samples,
+        dataset=args.dataset,
+        device=args.device,
+        include_random=not args.no_random,
+        verbose=not args.quiet
+    )
+    
+    total_time = time.time() - start_time
+    
+    # Print and save results
+    print_results_table(results)
+    
+    analysis = analyze_results(results)
+    print_analysis(analysis)
+    
+    # Save results
+    save_results(results, args.output)
+    
+    print(f"\n⏱️ Total benchmark time: {total_time/60:.1f} minutes")
+
 
 if __name__ == "__main__":
-    run_comparison()
+    main()

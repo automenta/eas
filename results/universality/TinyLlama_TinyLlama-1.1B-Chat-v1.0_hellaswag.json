@@ -1,0 +1,13 @@
+{
+  "model": "TinyLlama/TinyLlama-1.1B-Chat-v1.0",
+  "dataset": "hellaswag",
+  "layer": 5,
+  "baseline_acc": 0.2,
+  "final_acc": 0.2,
+  "improvement": 0.0,
+  "loss_history": [
+    0.9308125376701355,
+    1.7385482788085938e-05,
+    1.0890960693359375e-05
+  ]
+}

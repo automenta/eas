@@ -1,0 +1,13 @@
+{
+  "model": "EleutherAI/pythia-410m",
+  "dataset": "hellaswag",
+  "layer": 6,
+  "baseline_acc": 0.2,
+  "final_acc": 0.26,
+  "improvement": 0.06,
+  "loss_history": [
+    2.470849609375,
+    1.763427734375,
+    1.570771484375
+  ]
+}

@@ -1,0 +1,120 @@
+
+======================================================================
+          🧠 AFT UNIVERSALITY: google/gemma-2b on hellaswag 🧠          
+======================================================================
+
+📦 Loading google/gemma-2b...
+Traceback (most recent call last):
+  File "/home/me/.local/lib/python3.13/site-packages/huggingface_hub/utils/_http.py", line 409, in hf_raise_for_status
+    response.raise_for_status()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/home/me/.local/lib/python3.13/site-packages/requests/models.py", line 1026, in raise_for_status
+    raise HTTPError(http_error_msg, response=self)
+requests.exceptions.HTTPError: 401 Client Error: Unauthorized for url: https://huggingface.co/google/gemma-2b/resolve/main/config.json
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/me/.local/lib/python3.13/site-packages/transformers/utils/hub.py", line 470, in cached_files
+    hf_hub_download(
+    ~~~~~~~~~~~~~~~^
+        path_or_repo_id,
+        ^^^^^^^^^^^^^^^^
+    ...<10 lines>...
+        local_files_only=local_files_only,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/home/me/.local/lib/python3.13/site-packages/huggingface_hub/utils/_validators.py", line 114, in _inner_fn
+    return fn(*args, **kwargs)
+  File "/home/me/.local/lib/python3.13/site-packages/huggingface_hub/file_download.py", line 1010, in hf_hub_download
+    return _hf_hub_download_to_cache_dir(
+        # Destination
+    ...<14 lines>...
+        force_download=force_download,
+    )
+  File "/home/me/.local/lib/python3.13/site-packages/huggingface_hub/file_download.py", line 1117, in _hf_hub_download_to_cache_dir
+    _raise_on_head_call_error(head_call_error, force_download, local_files_only)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/me/.local/lib/python3.13/site-packages/huggingface_hub/file_download.py", line 1658, in _raise_on_head_call_error
+    raise head_call_error
+  File "/home/me/.local/lib/python3.13/site-packages/huggingface_hub/file_download.py", line 1546, in _get_metadata_or_catch_error
+    metadata = get_hf_file_metadata(
+        url=url, proxies=proxies, timeout=etag_timeout, headers=headers, token=token, endpoint=endpoint
+    )
+  File "/home/me/.local/lib/python3.13/site-packages/huggingface_hub/utils/_validators.py", line 114, in _inner_fn
+    return fn(*args, **kwargs)
+  File "/home/me/.local/lib/python3.13/site-packages/huggingface_hub/file_download.py", line 1463, in get_hf_file_metadata
+    r = _request_wrapper(
+        method="HEAD",
+    ...<5 lines>...
+        timeout=timeout,
+    )
+  File "/home/me/.local/lib/python3.13/site-packages/huggingface_hub/file_download.py", line 286, in _request_wrapper
+    response = _request_wrapper(
+        method=method,
+    ...<2 lines>...
+        **params,
+    )
+  File "/home/me/.local/lib/python3.13/site-packages/huggingface_hub/file_download.py", line 310, in _request_wrapper
+    hf_raise_for_status(response)
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^
+  File "/home/me/.local/lib/python3.13/site-packages/huggingface_hub/utils/_http.py", line 426, in hf_raise_for_status
+    raise _format(GatedRepoError, message, response) from e
+huggingface_hub.errors.GatedRepoError: 401 Client Error. (Request ID: Root=1-693db1f5-237bc18c47197dd77e34a051;2e0f4661-1a91-4620-8418-db718e542f03)
+
+Cannot access gated repo for url https://huggingface.co/google/gemma-2b/resolve/main/config.json.
+Access to model google/gemma-2b is restricted. You must have access to it and be authenticated to access it. Please log in.
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/me/eas/research/aft_universality.py", line 389, in <module>
+    main()
+    ~~~~^^
+  File "/home/me/eas/research/aft_universality.py", line 311, in main
+    wrapper = ModelWrapper(args.model, device)
+  File "/home/me/eas/research/aft_universality.py", line 56, in __init__
+    self.model = AutoModelForCausalLM.from_pretrained(
+                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        model_name,
+        ^^^^^^^^^^^
+    ...<2 lines>...
+        trust_remote_code=True
+        ^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/home/me/.local/lib/python3.13/site-packages/transformers/models/auto/auto_factory.py", line 547, in from_pretrained
+    config, kwargs = AutoConfig.from_pretrained(
+                     ~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        pretrained_model_name_or_path,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<4 lines>...
+        **kwargs,
+        ^^^^^^^^^
+    )
+    ^
+  File "/home/me/.local/lib/python3.13/site-packages/transformers/models/auto/configuration_auto.py", line 1197, in from_pretrained
+    config_dict, unused_kwargs = PretrainedConfig.get_config_dict(pretrained_model_name_or_path, **kwargs)
+                                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/me/.local/lib/python3.13/site-packages/transformers/configuration_utils.py", line 608, in get_config_dict
+    config_dict, kwargs = cls._get_config_dict(pretrained_model_name_or_path, **kwargs)
+                          ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/me/.local/lib/python3.13/site-packages/transformers/configuration_utils.py", line 667, in _get_config_dict
+    resolved_config_file = cached_file(
+        pretrained_model_name_or_path,
+    ...<10 lines>...
+        _commit_hash=commit_hash,
+    )
+  File "/home/me/.local/lib/python3.13/site-packages/transformers/utils/hub.py", line 312, in cached_file
+    file = cached_files(path_or_repo_id=path_or_repo_id, filenames=[filename], **kwargs)
+  File "/home/me/.local/lib/python3.13/site-packages/transformers/utils/hub.py", line 533, in cached_files
+    raise OSError(
+    ...<2 lines>...
+    ) from e
+OSError: You are trying to access a gated repo.
+Make sure to have access to it at https://huggingface.co/google/gemma-2b.
+401 Client Error. (Request ID: Root=1-693db1f5-237bc18c47197dd77e34a051;2e0f4661-1a91-4620-8418-db718e542f03)
+
+Cannot access gated repo for url https://huggingface.co/google/gemma-2b/resolve/main/config.json.
+Access to model google/gemma-2b is restricted. You must have access to it and be authenticated to access it. Please log in.
