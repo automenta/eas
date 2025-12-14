@@ -1415,6 +1415,117 @@ class AFTLab:
 # 🎮 CLI
 # ═══════════════════════════════════════════════════════════════════════════════
 
+# Small models for universality testing
+SMALL_MODELS = [
+    "Qwen/Qwen2-0.5B",
+    "TinyLlama/TinyLlama-1.1B-Chat-v1.0",
+    "microsoft/phi-1_5",
+]
+
+# Datasets for generality testing  
+BENCHMARK_DATASETS = ["hellaswag", "arc", "mmlu", "winogrande"]
+
+
+def run_benchmark(models: List[str], datasets: List[str], experiments: List[str], 
+                  quick: bool = False, turbo: bool = False):
+    """Run comprehensive benchmark across models and datasets."""
+    mode = "⚡ TURBO" if turbo else ("🚀 QUICK" if quick else "🔬 FULL")
+    console.print(BANNER)
+    console.print(Panel(
+        f"[bold cyan]{mode} UNIVERSALITY BENCHMARK[/]\n"
+        f"[dim]Models: {len(models)} | Datasets: {len(datasets)} | Experiments: {len(experiments)}[/]",
+        border_style="magenta"
+    ))
+    
+    all_results = []
+    
+    if turbo:
+        samples, test_samples, epochs = 15, 10, 1
+    elif quick:
+        samples, test_samples, epochs = 30, 20, 2
+    else:
+        samples, test_samples, epochs = 100, 50, 5
+    
+    for model_name in models:
+        model_results = {"model": model_name, "datasets": {}}
+        console.print(f"\n[bold magenta]═══ Testing: {model_name} ═══[/]")
+        
+        for dataset in datasets:
+            console.print(f"  [cyan]📊 Dataset: {dataset}[/]")
+            
+            config = ExperimentConfig(
+                model_name=model_name,
+                dataset=dataset,
+                train_samples=samples,
+                test_samples=test_samples,
+                epochs=epochs,
+            )
+            
+            try:
+                lab = AFTLab(config)
+                results = lab.run(experiments)
+                
+                dataset_results = {}
+                for r in results:
+                    dataset_results[r.name] = {
+                        "baseline": r.baseline_acc,
+                        "final": r.final_acc,
+                        "improvement": r.improvement
+                    }
+                
+                model_results["datasets"][dataset] = dataset_results
+            except Exception as e:
+                console.print(f"    [red]❌ Error: {e}[/]")
+                model_results["datasets"][dataset] = {"error": str(e)}
+        
+        all_results.append(model_results)
+    
+    # Print summary
+    console.print("\n")
+    console.print(Panel.fit("[bold magenta]📊 UNIVERSALITY SUMMARY[/]", border_style="magenta"))
+    
+    # Build summary table
+    summary = Table(title="AFT Universality Benchmark", box=box.DOUBLE_EDGE, show_lines=True)
+    summary.add_column("Model", style="cyan bold")
+    
+    for ds in datasets:
+        summary.add_column(ds.upper(), style="white")
+    
+    summary.add_column("AVG", style="yellow bold")
+    
+    for model_result in all_results:
+        row = [model_result["model"].split("/")[-1]]
+        improvements = []
+        
+        for ds in datasets:
+            if ds in model_result["datasets"]:
+                ds_data = model_result["datasets"][ds]
+                if "error" in ds_data:
+                    row.append("[red]ERR[/]")
+                else:
+                    # Get best improvement
+                    best_imp = max(r.get("improvement", 0) for r in ds_data.values())
+                    improvements.append(best_imp)
+                    style = "green bold" if best_imp > 10 else "green" if best_imp > 0 else "red"
+                    row.append(f"[{style}]+{best_imp:.1f}%[/]")
+            else:
+                row.append("-")
+        
+        avg_imp = np.mean(improvements) if improvements else 0
+        row.append(f"+{avg_imp:.1f}%")
+        summary.add_row(*row)
+    
+    console.print(summary)
+    
+    # Save full results
+    with open("benchmark_results.json", "w") as f:
+        json.dump(all_results, f, indent=2)
+    
+    console.print(f"\n[dim]Full results saved to benchmark_results.json[/]")
+    
+    return all_results
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="🧠 AFT Experiment Laboratory",
@@ -1425,6 +1536,8 @@ Examples:
   python aft_lab.py --quick                      # Quick test (fewer samples)
   python aft_lab.py --exp evolutionary           # Just evolutionary search
   python aft_lab.py --model Qwen/Qwen2-1.5B      # Different model
+  python aft_lab.py --benchmark                  # Full universality benchmark
+  python aft_lab.py --benchmark --quick          # Quick benchmark
         """
     )
     
@@ -1432,19 +1545,46 @@ Examples:
                        choices=["layer_sweep", "multilayer", "coefficient", "evolutionary", "recursive", "resonance", "echo", "all"],
                        default=["all"], help="Experiments to run")
     parser.add_argument("--model", type=str, default="Qwen/Qwen2-0.5B")
-    parser.add_argument("--dataset", type=str, default="hellaswag")
+    parser.add_argument("--dataset", type=str, default="hellaswag",
+                       choices=["hellaswag", "arc", "mmlu", "winogrande"])
     parser.add_argument("--samples", type=int, default=100)
     parser.add_argument("--test-samples", type=int, default=50)
     parser.add_argument("--epochs", type=int, default=5)
     parser.add_argument("--quick", action="store_true", help="Quick test mode")
+    parser.add_argument("--turbo", action="store_true", help="Ultra-fast validation (10 samples, 1 epoch)")
+    parser.add_argument("--benchmark", action="store_true", help="Run universality benchmark")
+    parser.add_argument("--models", type=str, nargs="+", default=None, 
+                       help="Models for benchmark (default: 2 small models)")
+    parser.add_argument("--datasets", type=str, nargs="+", default=None,
+                       help="Datasets for benchmark (default: hellaswag, arc)")
     
     args = parser.parse_args()
     
-    if args.quick:
+    if args.turbo:
+        args.samples = 15
+        args.test_samples = 10
+        args.epochs = 1
+    elif args.quick:
         args.samples = 30
         args.test_samples = 20
         args.epochs = 2
     
+    # Determine experiments
+    if "all" in args.exp:
+        core_experiments = ["coefficient", "multilayer", "echo"]  # Core for benchmark
+        full_experiments = ["layer_sweep", "multilayer", "coefficient", "evolutionary", "recursive", "resonance", "echo"]
+    else:
+        core_experiments = args.exp
+        full_experiments = args.exp
+    
+    # Benchmark mode
+    if args.benchmark:
+        models = args.models if args.models else SMALL_MODELS[:2]
+        datasets = args.datasets if args.datasets else ["hellaswag", "arc"]
+        run_benchmark(models, datasets, core_experiments, quick=args.quick, turbo=args.turbo)
+        return
+    
+    # Single run mode
     config = ExperimentConfig(
         model_name=args.model,
         dataset=args.dataset,
@@ -1453,13 +1593,8 @@ Examples:
         epochs=args.epochs,
     )
     
-    if "all" in args.exp:
-        experiments = ["layer_sweep", "multilayer", "coefficient", "evolutionary", "recursive", "resonance", "echo"]
-    else:
-        experiments = args.exp
-    
     lab = AFTLab(config)
-    lab.run(experiments)
+    lab.run(full_experiments)
 
 
 if __name__ == "__main__":
