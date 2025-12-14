@@ -1,0 +1,18 @@
+╭──────────────────────────────────────────────────────────────────────────────╮
+│ 🧪 Starting G-Factor Cycle: EleutherAI/pythia-410m                           │
+╰──────────────────────────────────────────────────────────────────────────────╯
+🔄 Loading EleutherAI/pythia-410m...
+`torch_dtype` is deprecated! Use `dtype` instead!
+✅ Model loaded: 24 layers
+🔍 Scouting layers for hellaswag...
+Asking to truncate to max_length but no maximum length is provided and the model has no predefined maximum length. Default to no truncation.
+  Layer 2: 0.0%
+  Layer 7: 0.0%
+  Layer 12: 0.0%
+  Layer 17: 0.0%
+  Layer 22: 0.0%
+🎯 Optimal Layer: 0
+  Training hellaswag @ L0...  ✅ hellaswag: 0.0%
+🔍 Scouting layers for arc...
+  Layer 2: 0.0%
+  Layer 7: 0.0%

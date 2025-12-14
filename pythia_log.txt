@@ -1,0 +1,11 @@
+╭──────────────────────────────────────────────────────────────────────────────╮
+│ 🧪 Starting G-Factor Cycle: EleutherAI/pythia-410m                           │
+╰──────────────────────────────────────────────────────────────────────────────╯
+🔄 Loading EleutherAI/pythia-410m...
+`torch_dtype` is deprecated! Use `dtype` instead!
+✅ Model loaded: 24 layers
+🔍 Scouting layers for hellaswag...
+`trust_remote_code` is not supported anymore.
+Please check that the Hugging Face dataset 'Rowan/hellaswag' isn't based on a loading script and remove `trust_remote_code`.
+If the dataset is based on a loading script, please ask the dataset author to remove it and convert it to a standard format like Parquet.
+Asking to truncate to max_length but no maximum length is provided and the model has no predefined maximum length. Default to no truncation.
