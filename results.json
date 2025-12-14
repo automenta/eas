@@ -1,95 +1,13 @@
 [
   {
-    "model": "pythia-70m (70M)",
-    "config": "baseline",
-    "samples": 200,
-    "correct": 53,
-    "accuracy": "26.5%",
-    "avg_confidence": "0.709",
-    "time_per_sample": "0.007s"
-  },
-  {
-    "model": "pythia-70m (70M)",
-    "config": "eas",
-    "samples": 200,
-    "correct": 53,
-    "accuracy": "26.5%",
-    "avg_confidence": "0.711",
-    "time_per_sample": "0.008s",
-    "eas_interventions": 185,
-    "eas_entropy": "1.762"
-  },
-  {
-    "model": "pythia-70m (70M)",
-    "config": "eas_strong",
-    "samples": 200,
-    "correct": 53,
-    "accuracy": "26.5%",
-    "avg_confidence": "0.712",
-    "time_per_sample": "0.007s",
-    "eas_interventions": 185,
-    "eas_entropy": "1.641"
-  },
-  {
-    "model": "gpt2 (117M)",
-    "config": "baseline",
-    "samples": 200,
-    "correct": 53,
-    "accuracy": "26.5%",
-    "avg_confidence": "0.924",
-    "time_per_sample": "0.010s"
-  },
-  {
-    "model": "gpt2 (117M)",
-    "config": "eas",
-    "samples": 200,
-    "correct": 53,
-    "accuracy": "26.5%",
-    "avg_confidence": "0.925",
-    "time_per_sample": "0.011s",
-    "eas_interventions": 185,
-    "eas_entropy": "1.798"
-  },
-  {
-    "model": "gpt2 (117M)",
-    "config": "eas_strong",
-    "samples": 200,
-    "correct": 53,
-    "accuracy": "26.5%",
-    "avg_confidence": "0.925",
-    "time_per_sample": "0.011s",
-    "eas_interventions": 185,
-    "eas_entropy": "1.904"
-  },
-  {
-    "model": "gpt2-medium (345M)",
-    "config": "baseline",
-    "samples": 200,
-    "correct": 53,
-    "accuracy": "26.5%",
-    "avg_confidence": "0.768",
-    "time_per_sample": "0.018s"
-  },
-  {
-    "model": "gpt2-medium (345M)",
-    "config": "eas",
-    "samples": 200,
-    "correct": 53,
-    "accuracy": "26.5%",
-    "avg_confidence": "0.768",
-    "time_per_sample": "0.020s",
-    "eas_interventions": 185,
-    "eas_entropy": "1.951"
-  },
-  {
-    "model": "gpt2-medium (345M)",
-    "config": "eas_strong",
-    "samples": 200,
-    "correct": 53,
-    "accuracy": "26.5%",
-    "avg_confidence": "0.768",
-    "time_per_sample": "0.019s",
-    "eas_interventions": 185,
-    "eas_entropy": "1.688"
+    "name": "Echo Chamber",
+    "baseline": 40.0,
+    "final": 50.0,
+    "improvement": 10.0,
+    "time": 1.2892029285430908,
+    "config": {
+      "layer": 12,
+      "dynamic": true
+    }
   }
 ]
