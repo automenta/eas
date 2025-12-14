@@ -1,0 +1,23 @@
+[
+  {
+    "model": "qwen-chat",
+    "baseline": 38.0,
+    "best": 39.33333333333333,
+    "improvement": 1.3333333333333286,
+    "layer": 1
+  },
+  {
+    "model": "qwen",
+    "baseline": 29.333333333333332,
+    "best": 40.0,
+    "improvement": 10.666666666666668,
+    "layer": 2
+  },
+  {
+    "model": "pythia",
+    "baseline": 30.0,
+    "best": 32.0,
+    "improvement": 2.0,
+    "layer": 2
+  }
+]
