@@ -1,0 +1,13 @@
+{
+  "date": "2025-12-13T10:28:08.953109",
+  "duration_minutes": 0.20417881666666665,
+  "n_samples": 500,
+  "layer": -1,
+  "gpt2_pythia_correlation": 0.77780681848526,
+  "pythia_gpt2_correlation": 0.6662754416465759,
+  "bidirectional_correlation": 0.722041130065918,
+  "std_correlation": 0.07903534173965454,
+  "result": "PASS",
+  "pass_threshold": 0.3,
+  "fail_threshold": 0.1
+}

@@ -1,0 +1,75 @@
+{
+  "model": "pythia-410m",
+  "dataset": "arc_challenge",
+  "baseline_acc": 23.0,
+  "final_acc": 32.0,
+  "improvement": 9.0,
+  "best_layer": 6,
+  "sweep_results": [
+    {
+      "layer": 4,
+      "acc": 30.0
+    },
+    {
+      "layer": 5,
+      "acc": 28.000000000000004
+    },
+    {
+      "layer": 6,
+      "acc": 32.0
+    },
+    {
+      "layer": 7,
+      "acc": 24.0
+    },
+    {
+      "layer": 8,
+      "acc": 24.0
+    },
+    {
+      "layer": 9,
+      "acc": 32.0
+    },
+    {
+      "layer": 10,
+      "acc": 30.0
+    },
+    {
+      "layer": 11,
+      "acc": 32.0
+    },
+    {
+      "layer": 12,
+      "acc": 26.0
+    },
+    {
+      "layer": 13,
+      "acc": 24.0
+    },
+    {
+      "layer": 14,
+      "acc": 28.000000000000004
+    },
+    {
+      "layer": 15,
+      "acc": 26.0
+    },
+    {
+      "layer": 16,
+      "acc": 26.0
+    },
+    {
+      "layer": 17,
+      "acc": 22.0
+    },
+    {
+      "layer": 18,
+      "acc": 22.0
+    },
+    {
+      "layer": 19,
+      "acc": 20.0
+    }
+  ],
+  "timestamp": "2025-12-13T17:59:20.248005"
+}

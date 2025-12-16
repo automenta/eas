@@ -1,0 +1,135 @@
+{
+  "date": "2025-12-13T10:28:38.651691",
+  "duration_minutes": 0.12066126666666667,
+  "model": "gpt2",
+  "n_prompts": 20,
+  "layer_tested": 6,
+  "total_layers": 12,
+  "successful_patches": 20,
+  "total_tests": 20,
+  "change_rate": 1.0,
+  "result": "PASS",
+  "pass_threshold": 0.5,
+  "per_prompt_results": [
+    {
+      "prompt": "The capital of France is",
+      "base": " the capital of the French Republic, and the capit",
+      "patched": ",,''''''''",
+      "changed": true
+    },
+    {
+      "prompt": "In 1969, humans first",
+      "base": " discovered the existence of a new type of life fo",
+      "patched": "- field field field field field field field field ",
+      "changed": true
+    },
+    {
+      "prompt": "The largest planet in our solar system is",
+      "base": " about 1.5 billion light years away.\n",
+      "patched": " and of of of of of of of of of",
+      "changed": true
+    },
+    {
+      "prompt": "Water freezes at",
+      "base": " the end of the day.\n\nThe ice",
+      "patched": "\n next next next next next next next next next",
+      "changed": true
+    },
+    {
+      "prompt": "The speed of light is approximately",
+      "base": " 1.5 times faster than the speed of light",
+      "patched": "- light light light light light light light light ",
+      "changed": true
+    },
+    {
+      "prompt": "Shakespeare wrote",
+      "base": ":\n\n\"The most important thing is that",
+      "patched": "- bit bit bit bit bit very very very very",
+      "changed": true
+    },
+    {
+      "prompt": "The mitochondria is the",
+      "base": " main source of energy for the body. The mitochond",
+      "patched": ", name name name name name name name name name",
+      "changed": true
+    },
+    {
+      "prompt": "E equals m c",
+      "base": " = m c + m c + m c +",
+      "patched": "- same same same same same same same same same",
+      "changed": true
+    },
+    {
+      "prompt": "The first president of the United States was",
+      "base": " born in 1836. He was born in New",
+      "patched": " and,,,,,,,,,",
+      "changed": true
+    },
+    {
+      "prompt": "Photosynthesis occurs in",
+      "base": " the form of photosynthesis, which is the process",
+      "patched": "- same same same same same same same same same",
+      "changed": true
+    },
+    {
+      "prompt": "The chemical symbol for gold is",
+      "base": " the \"G\" in the middle of the word",
+      "patched": " and field field field field field field field fie",
+      "changed": true
+    },
+    {
+      "prompt": "Mount Everest is located in",
+      "base": " the Himalayas, and is the only place",
+      "patched": " and designated also a a a a a a a",
+      "changed": true
+    },
+    {
+      "prompt": "The Declaration of Independence was signed in",
+      "base": " 1776 by the first American president, James Madis",
+      "patched": "\n\n\n\n\n\n\n\n\n\n",
+      "changed": true
+    },
+    {
+      "prompt": "DNA stands for",
+      "base": " \"small molecule\" and is a member of the",
+      "patched": " with is is is is is is is is is",
+      "changed": true
+    },
+    {
+      "prompt": "The Great Wall of China was built to",
+      "base": " protect the Chinese people from the Chinese Commu",
+      "patched": " and\n\n\n\n\n\n\n\n\n",
+      "changed": true
+    },
+    {
+      "prompt": "Gravity was discovered by",
+      "base": " the team of scientists who discovered it in the e",
+      "patched": "-\n\n\n\n\n\n\n\n\n",
+      "changed": true
+    },
+    {
+      "prompt": "The Amazon River flows through",
+      "base": " the city of San Francisco, California. The Amazon",
+      "patched": "- not not being being being being being being bein",
+      "changed": true
+    },
+    {
+      "prompt": "The periodic table was created by",
+      "base": " the European Commission in the early 1990s. It",
+      "patched": "/- the the the the the the the the",
+      "changed": true
+    },
+    {
+      "prompt": "World War II ended in",
+      "base": " a stalemate, with the United States and Russia",
+      "patched": "- the the the the the the the the the",
+      "changed": true
+    },
+    {
+      "prompt": "The human body has",
+      "base": " a number of functions, including the ability to a",
+      "patched": "- addition current current direction direction dir",
+      "changed": true
+    }
+  ]
+}

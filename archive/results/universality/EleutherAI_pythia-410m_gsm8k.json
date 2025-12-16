@@ -1,0 +1,13 @@
+{
+  "model": "EleutherAI/pythia-410m",
+  "dataset": "gsm8k",
+  "layer": 12,
+  "baseline_acc": 0.08,
+  "final_acc": 0.1,
+  "improvement": 0.020000000000000004,
+  "loss_history": [
+    2.281022617816925,
+    2.206859838962555,
+    2.1545173120498657
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "model": "Qwen/Qwen1.5-0.5B-Chat",
+  "dataset": "arc_challenge",
+  "layer": 8,
+  "baseline_acc": 0.28,
+  "final_acc": 0.36,
+  "improvement": 0.07999999999999996,
+  "loss_history": [
+    2.965240478515625,
+    1.36797119140625,
+    1.298070068359375
+  ]
+}

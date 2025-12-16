@@ -1,0 +1,13 @@
+{
+  "model": "Qwen/Qwen1.5-0.5B",
+  "dataset": "hellaswag",
+  "layer": 6,
+  "baseline_acc": 0.28,
+  "final_acc": 0.36,
+  "improvement": 0.07999999999999996,
+  "loss_history": [
+    1.4245068359375,
+    1.215040283203125,
+    1.0837872314453125
+  ]
+}

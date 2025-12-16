@@ -1,0 +1,32 @@
+`trust_remote_code` is not supported anymore.
+Please check that the Hugging Face dataset 'Rowan/hellaswag' isn't based on a loading script and remove `trust_remote_code`.
+If the dataset is based on a loading script, please ask the dataset author to remove it and convert it to a standard format like Parquet.
+======================================================================
+NOVEL EXPERIMENT: UNSUPERVISED SKILL TRANSFER
+======================================================================
+
+Loading models...
+
+Loading HellaSwag...
+Loaded 500 samples
+
+[Phase 1] Finding easy examples...
+Evaluating:   0%|          | 0/200 [00:00<?, ?it/s]Evaluating:   0%|          | 1/200 [00:00<00:49,  4.00it/s]Evaluating:   3%|▎         | 6/200 [00:00<00:09, 20.53it/s]Evaluating:   5%|▌         | 10/200 [00:00<00:08, 22.21it/s]Evaluating:   8%|▊         | 15/200 [00:00<00:06, 27.54it/s]Evaluating:  10%|▉         | 19/200 [00:00<00:05, 30.39it/s]Evaluating:  12%|█▏        | 23/200 [00:00<00:05, 32.97it/s]Evaluating:  14%|█▎        | 27/200 [00:00<00:05, 32.19it/s]Evaluating:  16%|█▌        | 32/200 [00:01<00:04, 34.74it/s]Evaluating:  18%|█▊        | 36/200 [00:01<00:04, 33.62it/s]Evaluating:  21%|██        | 42/200 [00:01<00:04, 38.83it/s]Evaluating:  23%|██▎       | 46/200 [00:01<00:04, 36.55it/s]Evaluating:  25%|██▌       | 50/200 [00:01<00:04, 34.97it/s]Evaluating:  28%|██▊       | 56/200 [00:01<00:03, 40.22it/s]Evaluating:  30%|███       | 61/200 [00:01<00:03, 40.47it/s]Evaluating:  34%|███▎      | 67/200 [00:01<00:03, 41.89it/s]Evaluating:  36%|███▌      | 72/200 [00:02<00:03, 39.82it/s]Evaluating:  39%|███▉      | 78/200 [00:02<00:02, 44.41it/s]Evaluating:  42%|████▏     | 83/200 [00:02<00:02, 41.34it/s]Evaluating:  44%|████▍     | 88/200 [00:02<00:02, 39.56it/s]Evaluating:  47%|████▋     | 94/200 [00:02<00:02, 41.03it/s]Evaluating:  50%|████▉     | 99/200 [00:02<00:02, 41.82it/s]Evaluating:  52%|█████▏    | 104/200 [00:02<00:02, 42.32it/s]Evaluating:  55%|█████▍    | 109/200 [00:02<00:02, 42.89it/s]Evaluating:  57%|█████▋    | 114/200 [00:03<00:02, 40.81it/s]Evaluating:  60%|█████▉    | 119/200 [00:03<00:02, 39.36it/s]Evaluating:  62%|██████▏   | 124/200 [00:03<00:01, 40.70it/s]Evaluating:  64%|██████▍   | 129/200 [00:03<00:01, 41.75it/s]Evaluating:  67%|██████▋   | 134/200 [00:03<00:01, 39.85it/s]Evaluating:  70%|██████▉   | 139/200 [00:03<00:01, 38.82it/s]Evaluating:  72%|███████▏  | 144/200 [00:03<00:01, 40.42it/s]Evaluating:  75%|███████▌  | 150/200 [00:03<00:01, 44.88it/s]Evaluating:  78%|███████▊  | 155/200 [00:04<00:01, 44.68it/s]Evaluating:  80%|████████  | 160/200 [00:04<00:00, 44.73it/s]Evaluating:  83%|████████▎ | 166/200 [00:04<00:00, 45.23it/s]Evaluating:  86%|████████▌ | 171/200 [00:04<00:00, 44.94it/s]Evaluating:  88%|████████▊ | 176/200 [00:04<00:00, 41.74it/s]Evaluating:  90%|█████████ | 181/200 [00:04<00:00, 42.33it/s]Evaluating:  93%|█████████▎| 186/200 [00:04<00:00, 38.15it/s]Evaluating:  95%|█████████▌| 190/200 [00:04<00:00, 37.01it/s]Evaluating:  97%|█████████▋| 194/200 [00:05<00:00, 35.99it/s]Evaluating: 100%|█████████▉| 199/200 [00:05<00:00, 35.70it/s]Evaluating: 100%|██████████| 200/200 [00:05<00:00, 37.86it/s]
+Found 53 easy samples
+
+[Phase 2] Learning activation projection...
+Projection: 1024d -> 768d
+
+[Phase 3] Testing on hard examples...
+Finding hard:   0%|          | 0/200 [00:00<?, ?it/s]Finding hard:   4%|▍         | 9/200 [00:00<00:02, 89.85it/s]Finding hard:  10%|▉         | 19/200 [00:00<00:01, 92.32it/s]Finding hard:  14%|█▍        | 29/200 [00:00<00:01, 93.16it/s]Finding hard:  20%|█▉        | 39/200 [00:00<00:01, 94.79it/s]Finding hard:  24%|██▍       | 49/200 [00:00<00:01, 94.25it/s]Finding hard:  30%|██▉       | 59/200 [00:00<00:01, 93.73it/s]Finding hard:  34%|███▍      | 69/200 [00:00<00:01, 95.16it/s]Finding hard:  40%|███▉      | 79/200 [00:00<00:01, 96.60it/s]Finding hard:  44%|████▍     | 89/200 [00:00<00:01, 95.50it/s]Finding hard:  50%|████▉     | 99/200 [00:01<00:01, 96.56it/s]Finding hard:  55%|█████▍    | 109/200 [00:01<00:00, 96.63it/s]Finding hard:  60%|█████▉    | 119/200 [00:01<00:00, 96.56it/s]Finding hard:  65%|██████▌   | 130/200 [00:01<00:00, 98.32it/s]Finding hard:  70%|███████   | 141/200 [00:01<00:00, 99.63it/s]Finding hard:  76%|███████▌  | 152/200 [00:01<00:00, 100.30it/s]Finding hard:  82%|████████▏ | 163/200 [00:01<00:00, 102.60it/s]Finding hard:  87%|████████▋ | 174/200 [00:01<00:00, 104.44it/s]Finding hard:  93%|█████████▎| 186/200 [00:01<00:00, 106.27it/s]Finding hard:  98%|█████████▊| 197/200 [00:01<00:00, 106.97it/s]Finding hard: 100%|██████████| 200/200 [00:02<00:00, 99.38it/s] 
+Found 146 hard samples
+Testing:   0%|          | 0/50 [00:00<?, ?it/s]Testing:  12%|█▏        | 6/50 [00:00<00:00, 52.53it/s]Testing:  24%|██▍       | 12/50 [00:00<00:00, 52.01it/s]Testing:  36%|███▌      | 18/50 [00:00<00:00, 50.53it/s]Testing:  48%|████▊     | 24/50 [00:00<00:00, 50.02it/s]Testing:  60%|██████    | 30/50 [00:00<00:00, 49.91it/s]Testing:  72%|███████▏  | 36/50 [00:00<00:00, 50.51it/s]Testing:  84%|████████▍ | 42/50 [00:00<00:00, 50.02it/s]Testing:  96%|█████████▌| 48/50 [00:00<00:00, 50.33it/s]Testing: 100%|██████████| 50/50 [00:00<00:00, 50.52it/s]
+
+======================================================================
+RESULTS
+======================================================================
+Baseline: 0.0%
+With injection: 0.0%
+Improvement: +0.0%
+
+>>> FAILED

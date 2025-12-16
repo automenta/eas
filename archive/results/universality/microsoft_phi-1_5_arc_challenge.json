@@ -1,0 +1,13 @@
+{
+  "model": "microsoft/phi-1_5",
+  "dataset": "arc_challenge",
+  "layer": 8,
+  "baseline_acc": 0.56,
+  "final_acc": 0.58,
+  "improvement": 0.019999999999999907,
+  "loss_history": [
+    0.9817570495605469,
+    0.9352389526367187,
+    0.9006051635742187
+  ]
+}

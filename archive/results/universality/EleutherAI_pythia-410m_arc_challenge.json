@@ -1,0 +1,13 @@
+{
+  "model": "EleutherAI/pythia-410m",
+  "dataset": "arc_challenge",
+  "layer": 6,
+  "baseline_acc": 0.26,
+  "final_acc": 0.3,
+  "improvement": 0.03999999999999998,
+  "loss_history": [
+    1.94482421875,
+    1.5613671875,
+    1.480302734375
+  ]
+}

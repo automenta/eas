@@ -1,0 +1,13 @@
+{
+  "model": "pythia-410m",
+  "dataset": "hellaswag",
+  "layer": 8,
+  "num_layers": 24,
+  "baseline_acc": 30.0,
+  "steered_acc": 27.0,
+  "improvement": -3.0,
+  "epochs": 5,
+  "samples": 100,
+  "primitives": 8,
+  "timestamp": "2025-12-13T17:14:42.428145"
+}

@@ -1,0 +1,13 @@
+{
+  "model": "Qwen/Qwen1.5-0.5B-Chat",
+  "dataset": "hellaswag",
+  "layer": 8,
+  "baseline_acc": 0.44,
+  "final_acc": 0.42,
+  "improvement": -0.020000000000000018,
+  "loss_history": [
+    4.12679443359375,
+    1.41992431640625,
+    1.35098876953125
+  ]
+}
