@@ -8,12 +8,18 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 class AdversarialDefender:
     """Detects and refuses adversarial/injection prompts using Perplexity."""
     
-    def __init__(self, model_name="EleutherAI/pythia-410m", device="cpu"):
-        print(f"Loading {model_name} for defense...")
-        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
-        self.tokenizer.pad_token = self.tokenizer.eos_token
-        self.model = AutoModelForCausalLM.from_pretrained(model_name).to(device)
-        self.device = device
+    def __init__(self, model_name="EleutherAI/pythia-410m", device="cpu", model=None, tokenizer=None):
+        if model and tokenizer:
+            print("Using existing model for defense...")
+            self.model = model
+            self.tokenizer = tokenizer
+            self.device = model.device
+        else:
+            print(f"Loading {model_name} for defense...")
+            self.tokenizer = AutoTokenizer.from_pretrained(model_name)
+            self.tokenizer.pad_token = self.tokenizer.eos_token
+            self.model = AutoModelForCausalLM.from_pretrained(model_name).to(device)
+            self.device = device
         
         # Calibration stats (will be updated)
         self.mean_ppl = 20.0
